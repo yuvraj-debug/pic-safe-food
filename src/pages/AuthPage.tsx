@@ -1,49 +1,44 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"email" | "otp">("email");
+  const [password, setPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || !password.trim()) return;
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithOtp({ email });
-
-    if (error) {
-      toast.error(error.message);
+    if (isLogin) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Welcome back!");
+        navigate("/");
+      }
     } else {
-      toast.success("OTP sent to your email!");
-      setStep("otp");
-    }
-    setLoading(false);
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length !== 6) return;
-    setLoading(true);
-
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp,
-      type: "email",
-    });
-
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Logged in successfully!");
-      navigate("/");
+      if (password.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        setLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Account created! You're now logged in.");
+        navigate("/");
+      }
     }
     setLoading(false);
   };
@@ -59,90 +54,68 @@ const AuthPage = () => {
               FoodScan AI
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              {step === "email" ? "Enter your email to get started" : "Enter the 6-digit code sent to your email"}
+              {isLogin ? "Sign in to your account" : "Create a new account"}
             </p>
           </div>
         </div>
 
-        {step === "email" ? (
-          <form onSubmit={handleSendOtp} className="w-full space-y-4">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                required
-                className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-body"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading || !email.trim()}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl glow-primary hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  Continue
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp} className="w-full space-y-4">
-            <p className="text-center text-sm text-muted-foreground">
-              Code sent to <span className="text-foreground font-medium">{email}</span>
-            </p>
-            <div className="flex justify-center gap-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <input
-                  key={i}
-                  type="text"
-                  maxLength={1}
-                  value={otp[i] || ""}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    const newOtp = otp.split("");
-                    newOtp[i] = val;
-                    setOtp(newOtp.join("").slice(0, 6));
-                    // Auto-focus next
-                    if (val && e.target.nextElementSibling) {
-                      (e.target.nextElementSibling as HTMLInputElement).focus();
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Backspace" && !otp[i] && (e.target as HTMLInputElement).previousElementSibling) {
-                      ((e.target as HTMLInputElement).previousElementSibling as HTMLInputElement).focus();
-                    }
-                  }}
-                  className="w-12 h-14 bg-card border border-border rounded-xl text-center text-xl font-display font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              ))}
-            </div>
-            <button
-              type="submit"
-              disabled={loading || otp.length !== 6}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl glow-primary hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                "Verify & Login"
-              )}
-            </button>
+        <form onSubmit={handleSubmit} className="w-full space-y-4">
+          {/* Email */}
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              required
+              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-body"
+            />
+          </div>
+
+          {/* Password */}
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={isLogin ? "Your password" : "Create a password (min 6 chars)"}
+              required
+              minLength={6}
+              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-body"
+            />
             <button
               type="button"
-              onClick={() => { setStep("email"); setOtp(""); }}
-              className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
-              Change email
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
-          </form>
-        )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !email.trim() || !password.trim()}
+            className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl glow-primary hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                {isLogin ? "Sign In" : "Create Account"}
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
+          </button>
+        </form>
+
+        <button
+          onClick={() => { setIsLogin(!isLogin); setPassword(""); }}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+        </button>
       </div>
     </div>
   );
