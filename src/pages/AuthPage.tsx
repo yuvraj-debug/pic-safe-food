@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ShieldCheck, Mail, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, ArrowRight, Loader2 } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { toast } from "sonner";
 
 const AuthPage = () => {
@@ -52,9 +53,7 @@ const AuthPage = () => {
       <div className="w-full max-w-sm flex flex-col items-center gap-8">
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center glow-primary">
-            <ShieldCheck className="w-8 h-8 text-primary" />
-          </div>
+          <img src={logo} alt="FoodScan AI" className="w-16 h-16 rounded-2xl" />
           <div className="text-center">
             <h1 className="text-3xl font-bold font-display text-gradient-primary">
               FoodScan AI

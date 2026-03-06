@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { ScanLine, ShieldCheck, History, Clock, ChevronRight, Trash2 } from "lucide-react";
+import { ScanLine, History, Clock, ChevronRight, Trash2 } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { getHistory, clearHistory } from "@/lib/scanHistory";
 import { useState } from "react";
 import type { ScanHistoryItem } from "@/types/analysis";
@@ -35,9 +36,7 @@ const HomePage = () => {
       <div className="flex flex-col items-center pt-12 pb-6 px-6">
         <div className="flex flex-col items-center gap-5 max-w-sm w-full">
           {/* Logo */}
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center glow-primary">
-            <ShieldCheck className="w-8 h-8 text-primary" />
-          </div>
+          <img src={logo} alt="FoodScan AI" className="w-16 h-16 rounded-2xl" />
 
           {/* Title */}
           <div className="text-center">
