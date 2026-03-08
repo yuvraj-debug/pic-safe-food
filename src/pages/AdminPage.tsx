@@ -90,7 +90,6 @@ const AdminPage = () => {
     profiles?.forEach((p: any) => { emailMap[p.id] = p.email; });
     setIntents((intentData ?? []).map((i: any) => ({ ...i, email: emailMap[i.user_id] || "Unknown" })));
   };
-  };
 
   const fetchUserScans = async (userId: string) => {
     if (userScans[userId]) return;
