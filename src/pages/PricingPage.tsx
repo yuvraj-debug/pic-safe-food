@@ -56,38 +56,18 @@ const PricingPage = () => {
     }
 
     const message = encodeURIComponent(
-      `Hi, I would like to upgrade my plan to *${planName}* (${price}/month) on PicSafe Food. Please share the payment details.\n\nEmail: ${user?.email || "N/A"}`
+      `Hi, I would like to upgrade my plan to ${planName} (${price}/month) on PicSafe Food. Please share the payment details.\n\nEmail: ${user?.email || "N/A"}`
     );
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
 
-    // Robust WhatsApp opener: works in browsers, iframes, and WebViews
-    const openWhatsApp = () => {
-      // WebView (React Native / Android wrapper)
-      if ((window as any).ReactNativeWebView) {
-        window.location.href = whatsappUrl;
-        return;
-      }
-
-      // Try window.open first (works in most browsers)
-      const win = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-
-      // If blocked (iframe/popup blocker), fall back to top-level navigation
-      if (!win || win.closed) {
-        // Try top-level navigation for iframe environments
-        try {
-          if (window.top && window.top !== window.self) {
-            window.top.location.href = whatsappUrl;
-            return;
-          }
-        } catch {
-          // Cross-origin top — can't access
-        }
-        // Last resort: navigate current frame
-        window.location.href = whatsappUrl;
-      }
-    };
-
-    openWhatsApp();
+    // Use a temporary <a> tag to reliably open WhatsApp (like a real link click)
+    const a = document.createElement("a");
+    a.href = whatsappUrl;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     toast.success("Opening WhatsApp...", {
       description: "If WhatsApp didn't open, tap below to copy the link.",
