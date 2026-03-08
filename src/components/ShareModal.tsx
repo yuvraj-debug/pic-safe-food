@@ -150,6 +150,7 @@ const ShareModal = ({ analysis, displayScore, displayLevel, baseScore, onClose }
           displayScore={displayScore}
           displayLevel={displayLevel}
           productName={productName}
+          baseScore={baseScore}
         />
       </div>
 
