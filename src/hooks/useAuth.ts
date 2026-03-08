@@ -9,44 +9,49 @@ export function useAuth() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userPlan, setUserPlan] = useState<string>("free");
 
+  const fetchUserData = async (userId: string) => {
+    const [{ data: roles }, { data: plan }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", userId),
+      supabase.from("user_plans").select("plan").eq("user_id", userId).single(),
+    ]);
+    setIsAdmin(roles?.some((r: any) => r.role === "admin") ?? false);
+    setUserPlan(plan?.plan ?? "free");
+  };
+
   useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        await fetchUserData(session.user.id);
+      }
+      if (mounted) setLoading(false);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Defer data fetching to avoid deadlock
-          setTimeout(async () => {
-            const { data: roles } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", session.user.id);
-            setIsAdmin(roles?.some((r: any) => r.role === "admin") ?? false);
 
-            const { data: plan } = await supabase
-              .from("user_plans")
-              .select("plan")
-              .eq("user_id", session.user.id)
-              .single();
-            setUserPlan(plan?.plan ?? "free");
-          }, 0);
+        if (session?.user) {
+          await fetchUserData(session.user.id);
         } else {
           setIsAdmin(false);
           setUserPlan("free");
         }
-        
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (!session) setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
