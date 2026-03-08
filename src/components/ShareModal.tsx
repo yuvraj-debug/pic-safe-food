@@ -67,14 +67,7 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
   const handleDownload = async () => {
     const blob = await generateImage();
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `picsafe-${productName.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 30)}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerDownload(blob);
     toast.success("Image downloaded!");
   };
 
