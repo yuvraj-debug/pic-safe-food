@@ -1,23 +1,17 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  ArrowLeft,
-  FileText,
-  FlaskConical,
-  AlertTriangle,
-  Leaf,
-  ShieldAlert,
-  Utensils,
-  Eye,
-  EyeOff,
-  Info,
-  ScanLine,
-  Share2,
+  ArrowLeft, FileText, FlaskConical, AlertTriangle, Leaf,
+  ShieldAlert, Utensils, Eye, EyeOff, Info, ScanLine, Share2, Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 import SafetyMeter from "@/components/SafetyMeter";
 import AnalysisCard from "@/components/AnalysisCard";
+import PersonalizedWarnings from "@/components/PersonalizedWarnings";
+import { useHealthProfile } from "@/hooks/useHealthProfile";
+import { computePersonalizedScore } from "@/lib/personalizedScoring";
 import type { AnalysisResult } from "@/types/analysis";
+import type { PersonalizedResult } from "@/lib/personalizedScoring";
 
 const getRiskBadge = (level?: string) => {
   switch (level) {
@@ -35,6 +29,14 @@ const ResultsPage = () => {
   const navigate = useNavigate();
   const analysis = location.state?.analysis as AnalysisResult | undefined;
   const [showDetails, setShowDetails] = useState(false);
+  const { profile, loading: profileLoading, hasProfile } = useHealthProfile();
+  const [personalized, setPersonalized] = useState<PersonalizedResult | null>(null);
+
+  useEffect(() => {
+    if (analysis && !profileLoading && hasProfile) {
+      setPersonalized(computePersonalizedScore(analysis, profile));
+    }
+  }, [analysis, profile, profileLoading, hasProfile]);
 
   if (!analysis) {
     return (
@@ -49,7 +51,9 @@ const ResultsPage = () => {
     );
   }
 
-  const scoreColor = analysis.safety_score <= 30 ? "unsafe" : analysis.safety_score <= 60 ? "moderate" : "safe";
+  const displayScore = personalized ? personalized.personalizedScore : analysis.safety_score;
+  const scoreColor = displayScore <= 30 ? "unsafe" : displayScore <= 60 ? "moderate" : "safe";
+  const displayLevel = displayScore <= 30 ? "Unsafe" : displayScore <= 60 ? "Moderate" : "Safe";
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -61,29 +65,70 @@ const ResultsPage = () => {
           </button>
           <h2 className="font-display font-semibold text-lg text-foreground">Results</h2>
         </div>
-        <button
-          onClick={async () => {
-            const shareText = `🔍 ${analysis.overall_verdict || "Food Safety Check"}\n\n📊 Safety Score: ${analysis.safety_score}/100 (${analysis.safety_level})\n\n${analysis.simple_summary || analysis.product_summary}\n\n${analysis.harmful_ingredients.length > 0 ? `⚠️ ${analysis.harmful_ingredients.length} concern(s) found` : "✅ No major concerns"}\n\nScanned with PicSafe Food`;
-            if (navigator.share) {
-              try {
-                await navigator.share({ title: "PicSafe Food Scan Result", text: shareText });
-              } catch {}
-            } else {
-              await navigator.clipboard.writeText(shareText);
-              toast.success("Results copied to clipboard!");
-            }
-          }}
-          className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-muted"
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate("/health-profile")}
+            className={`p-2 rounded-xl transition-colors ${hasProfile ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+            title="Health Profile"
+          >
+            <Heart className="w-5 h-5" />
+          </button>
+          <button
+            onClick={async () => {
+              const shareText = `🔍 ${analysis.overall_verdict || "Food Safety Check"}\n\n📊 Safety Score: ${displayScore}/100 (${displayLevel})\n\n${analysis.simple_summary || analysis.product_summary}\n\n${analysis.harmful_ingredients.length > 0 ? `⚠️ ${analysis.harmful_ingredients.length} concern(s) found` : "✅ No major concerns"}\n\nScanned with PicSafe Food`;
+              if (navigator.share) {
+                try { await navigator.share({ title: "PicSafe Food Scan Result", text: shareText }); } catch {}
+              } else {
+                await navigator.clipboard.writeText(shareText);
+                toast.success("Results copied to clipboard!");
+              }
+            }}
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-muted"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="max-w-2xl mx-auto">
-        {/* Safety Meter */}
+        {/* Safety Meter - shows personalized score */}
         <div className="px-4 sm:px-6 mb-4">
-          <SafetyMeter score={analysis.safety_score} label={analysis.safety_level} />
+          <SafetyMeter score={displayScore} label={displayLevel} />
+          {personalized && personalized.penaltyTotal > 0 && (
+            <p className="text-center text-xs text-muted-foreground mt-1">
+              Base score: <span className="font-semibold text-foreground">{personalized.baseScore}</span>
+              {" → "}
+              Personalized: <span className={`font-semibold text-${scoreColor}`}>{personalized.personalizedScore}</span>
+            </p>
+          )}
         </div>
+
+        {/* Personalized Warnings */}
+        {personalized && personalized.warnings.length > 0 && (
+          <div className="px-4 mb-4">
+            <PersonalizedWarnings
+              warnings={personalized.warnings}
+              baseScore={personalized.baseScore}
+              personalizedScore={personalized.personalizedScore}
+              penaltyTotal={personalized.penaltyTotal}
+            />
+          </div>
+        )}
+
+        {/* No health profile banner */}
+        {!profileLoading && !hasProfile && (
+          <div className="px-4 mb-4">
+            <button
+              onClick={() => navigate("/health-profile")}
+              className="w-full rounded-2xl p-3 border border-primary/20 bg-primary/5 flex items-center gap-3 hover:bg-primary/10 transition-all"
+            >
+              <Heart className="w-5 h-5 text-primary shrink-0" />
+              <p className="text-sm text-foreground text-left">
+                Set up your <span className="font-semibold text-primary">Health Profile</span> for personalized safety scores
+              </p>
+            </button>
+          </div>
+        )}
 
         {/* Simple Summary */}
         <div className="px-4 mb-4">
@@ -126,6 +171,11 @@ const ResultsPage = () => {
             {analysis.allergens.length === 0 && (
               <span className="text-xs px-3 py-1.5 rounded-full bg-safe/10 text-safe border border-safe/20 font-medium">
                 ✅ No allergens detected
+              </span>
+            )}
+            {personalized && personalized.penaltyTotal > 0 && (
+              <span className="text-xs px-3 py-1.5 rounded-full bg-unsafe/10 text-unsafe border border-unsafe/20 font-medium">
+                ❤️ {personalized.warnings.length} Personal warning{personalized.warnings.length > 1 ? "s" : ""}
               </span>
             )}
           </div>
