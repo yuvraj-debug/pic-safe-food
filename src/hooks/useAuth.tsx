@@ -23,6 +23,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // Safety timeout - never stay loading forever
+    const timeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("[useAuth] Auth timeout - forcing loading=false");
+        setLoading(false);
+      }
+    }, 5000);
+
     const fetchUserData = async (userId: string) => {
       try {
         const [{ data: roles }, { data: plan }] = await Promise.all([
@@ -40,22 +48,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        console.log("[useAuth] onAuthStateChange:", _event, !!session);
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fire and forget - don't await inside onAuthStateChange
           fetchUserData(session.user.id);
         } else {
           setIsAdmin(false);
           setUserPlan("free");
         }
+        // Also set loading false here in case getSession is slow
+        if (mounted) setLoading(false);
       }
     );
 
     // THEN get initial session
+    console.log("[useAuth] calling getSession...");
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("[useAuth] getSession resolved:", !!session);
       if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
@@ -63,12 +75,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchUserData(session.user.id);
       }
       setLoading(false);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error("[useAuth] getSession failed:", err);
       if (mounted) setLoading(false);
     });
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
