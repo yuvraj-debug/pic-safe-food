@@ -136,7 +136,7 @@ const PricingPage = () => {
                     </div>
                   ) : (
                     <button
-                      onClick={() => handleBuyNow(plan.name)}
+                      onClick={() => handleBuyNow(plan.name, plan.plan)}
                       className={`w-full flex items-center justify-center gap-2 font-display font-semibold py-3 rounded-xl transition-all active:scale-[0.97] ${
                         plan.popular
                           ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110"
