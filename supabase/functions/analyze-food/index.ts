@@ -12,17 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { image } = await req.json();
-    if (!image) {
-      return new Response(JSON.stringify({ error: "No image provided" }), {
+    const body = await req.json();
+    const { image, ingredients_text } = body;
+
+    if (!image && !ingredients_text) {
+      return new Response(JSON.stringify({ error: "No image or ingredients text provided" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
@@ -30,60 +27,74 @@ serve(async (req) => {
       throw new Error("GROQ_API_KEY is not configured");
     }
 
-    // Step 1: OCR - Extract text from image using Gemini vision
-    const ocrResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an OCR specialist. Extract ALL text visible in the image. Focus especially on finding the ingredients list. Return ONLY the extracted text, nothing else.",
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Extract all text from this food product image, especially the ingredients list.",
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: image },
-                },
-              ],
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 1000,
-        }),
-      }
-    );
+    let extractedText: string;
 
-    if (!ocrResponse.ok) {
-      const errText = await ocrResponse.text();
-      console.error("OCR error:", ocrResponse.status, errText);
-      if (ocrResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    if (ingredients_text) {
+      // Direct text input — skip OCR
+      extractedText = ingredients_text;
+      console.log("Using provided ingredients text directly");
+    } else {
+      // Image input — run OCR
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY is not configured");
       }
-      throw new Error(`OCR failed: ${ocrResponse.status}`);
+
+      const ocrResponse = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are an OCR specialist. Extract ALL text visible in the image. Focus especially on finding the ingredients list. Return ONLY the extracted text, nothing else.",
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Extract all text from this food product image, especially the ingredients list.",
+                  },
+                  {
+                    type: "image_url",
+                    image_url: { url: image },
+                  },
+                ],
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 1000,
+          }),
+        }
+      );
+
+      if (!ocrResponse.ok) {
+        const errText = await ocrResponse.text();
+        console.error("OCR error:", ocrResponse.status, errText);
+        if (ocrResponse.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`OCR failed: ${ocrResponse.status}`);
+      }
+
+      const ocrData = await ocrResponse.json();
+      extractedText = ocrData.choices?.[0]?.message?.content || "No text found";
     }
 
-    const ocrData = await ocrResponse.json();
-    const extractedText = ocrData.choices?.[0]?.message?.content || "No text found";
-    console.log("Extracted text:", extractedText);
+    console.log("Text for analysis:", extractedText.substring(0, 200));
 
-    // Step 2: Analyze ingredients using Groq llama-3.3-70b-versatile
+    // Analyze ingredients using Groq
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -142,7 +153,6 @@ serve(async (req) => {
       throw new Error("No analysis returned from Groq");
     }
 
-    // Parse the JSON response - handle potential markdown wrapping
     let result;
     try {
       const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
