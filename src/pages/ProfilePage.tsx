@@ -8,7 +8,7 @@ import { SideMenu } from "@/components/SideMenu";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, userPlan, signOut } = useAuth();
-  const { scanCount, limit, remaining, daysUntilReset } = useScanLimit();
+  const { scanCount, limit, bonusScans, remaining, daysUntilReset } = useScanLimit();
 
   const handleLogout = async () => {
     await signOut();
