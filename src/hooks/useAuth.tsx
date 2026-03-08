@@ -23,6 +23,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // Safety timeout - never stay loading forever
+    const timeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("[useAuth] Auth timeout - forcing loading=false");
+        setLoading(false);
+      }
+    }, 5000);
+
     const fetchUserData = async (userId: string) => {
       try {
         const [{ data: roles }, { data: plan }] = await Promise.all([
