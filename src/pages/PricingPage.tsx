@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Crown, Zap, Star } from "lucide-react";
+import { ArrowLeft, Check, Crown, Zap, Star, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/BottomNav";
+import { toast } from "sonner";
 
 const plans = [
   {
@@ -36,32 +37,43 @@ const plans = [
   },
 ];
 
+const ADMIN_EMAIL = "ys8800221@gmail.com";
+
 const PricingPage = () => {
   const navigate = useNavigate();
   const { userPlan } = useAuth();
 
+  const handleBuyNow = (planName: string) => {
+    const subject = encodeURIComponent(`Upgrade to ${planName} Plan - PicSafe Food`);
+    const body = encodeURIComponent(
+      `Hi,\n\nI would like to upgrade my plan to ${planName}.\n\nPlease let me know the payment details.\n\nThank you!`
+    );
+    window.open(`mailto:${ADMIN_EMAIL}?subject=${subject}&body=${body}`, "_blank");
+    toast.success("Opening email client...");
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4">
+      <div className="flex items-center gap-3 p-4 max-w-3xl mx-auto">
         <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h2 className="font-display font-semibold text-lg text-foreground">Plans & Pricing</h2>
       </div>
 
-      <div className="px-4">
+      <div className="px-4 max-w-3xl mx-auto">
         <p className="text-muted-foreground text-sm text-center mb-6">
           Choose a plan that fits your needs
         </p>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {plans.map((plan) => {
             const isCurrent = userPlan === plan.plan;
             return (
               <div
                 key={plan.plan}
-                className={`relative rounded-2xl border p-5 transition-all ${
+                className={`relative rounded-2xl border p-5 transition-all flex flex-col ${
                   plan.popular
                     ? "border-primary/50 bg-primary/5 glow-primary"
                     : "border-border bg-gradient-card"
@@ -87,7 +99,7 @@ const PricingPage = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2 mt-4 flex-1">
                   {plan.features.map((f, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm text-secondary-foreground">
                       <Check className="w-4 h-4 text-primary shrink-0" />
@@ -96,18 +108,37 @@ const PricingPage = () => {
                   ))}
                 </div>
 
-                {isCurrent && (
-                  <div className="mt-4 text-center text-xs font-semibold text-primary">
-                    ✓ Current Plan
-                  </div>
-                )}
+                {/* Buy Now / Current Plan button */}
+                <div className="mt-5">
+                  {isCurrent ? (
+                    <div className="w-full text-center text-sm font-semibold text-primary py-3 rounded-xl border border-primary/30 bg-primary/5">
+                      ✓ Current Plan
+                    </div>
+                  ) : plan.plan === "free" ? (
+                    <div className="w-full text-center text-sm text-muted-foreground py-3 rounded-xl border border-border">
+                      Default Plan
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleBuyNow(plan.name)}
+                      className={`w-full flex items-center justify-center gap-2 font-display font-semibold py-3 rounded-xl transition-all active:scale-[0.97] ${
+                        plan.popular
+                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+                      }`}
+                    >
+                      <Mail className="w-4 h-4" />
+                      Buy Now
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Contact admin to upgrade your plan
+          Contact us at {ADMIN_EMAIL} to upgrade your plan
         </p>
       </div>
 

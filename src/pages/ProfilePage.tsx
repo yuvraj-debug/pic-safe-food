@@ -16,13 +16,13 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="p-4">
+      <div className="p-4 max-w-lg mx-auto">
         <h2 className="font-display font-semibold text-lg text-foreground mb-6">Profile</h2>
 
         <div className="space-y-4">
           {/* Email */}
           <div className="bg-gradient-card rounded-2xl border border-border p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <Mail className="w-5 h-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
@@ -33,16 +33,16 @@ const ProfilePage = () => {
 
           {/* Plan */}
           <div className="bg-gradient-card rounded-2xl border border-border p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <Crown className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">Current Plan</p>
               <p className="text-sm text-foreground font-semibold capitalize">{userPlan}</p>
             </div>
             <button
               onClick={() => navigate("/pricing")}
-              className="text-xs text-primary font-semibold"
+              className="text-xs text-primary font-semibold shrink-0"
             >
               View Plans
             </button>
@@ -50,16 +50,16 @@ const ProfilePage = () => {
 
           {/* Scans */}
           <div className="bg-gradient-card rounded-2xl border border-border p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <ScanLine className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">Today's Scans</p>
               <p className="text-sm text-foreground font-semibold">
                 {scansToday} / {limit}
               </p>
             </div>
-            <span className="text-xs text-muted-foreground">{remaining} left</span>
+            <span className="text-xs text-muted-foreground shrink-0">{remaining} left</span>
           </div>
 
           {/* Logout */}
