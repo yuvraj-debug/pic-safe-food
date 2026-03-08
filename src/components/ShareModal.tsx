@@ -219,6 +219,7 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
       </div>
     </div>
   );
-};
+});
 
+ShareModal.displayName = "ShareModal";
 export default ShareModal;
