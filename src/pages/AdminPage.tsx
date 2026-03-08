@@ -220,6 +220,8 @@ const AdminPage = () => {
   const planColors: Record<string, string> = {
     free: "bg-muted text-muted-foreground",
     basic: "bg-accent/15 text-accent-foreground",
+    pro: "bg-primary/15 text-primary",
+    lifetime: "bg-primary/20 text-primary",
     premium: "bg-primary/15 text-primary",
   };
 
