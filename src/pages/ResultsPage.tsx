@@ -30,6 +30,7 @@ const ResultsPage = () => {
   const navigate = useNavigate();
   const analysis = location.state?.analysis as AnalysisResult | undefined;
   const [showDetails, setShowDetails] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const { profile, loading: profileLoading, hasProfile } = useHealthProfile();
   const [personalized, setPersonalized] = useState<PersonalizedResult | null>(null);
 
