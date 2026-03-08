@@ -9,10 +9,11 @@ interface Props {
   analysis: AnalysisResult;
   displayScore: number;
   displayLevel: string;
+  baseScore?: number;
   onClose: () => void;
 }
 
-const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) => {
+const ShareModal = ({ analysis, displayScore, displayLevel, baseScore, onClose }: Props) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
