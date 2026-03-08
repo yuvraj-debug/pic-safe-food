@@ -199,6 +199,7 @@ const HealthProfilePage = () => {
         </button>
       </div>
 
+      <SideMenu />
       <BottomNav />
     </div>
   );

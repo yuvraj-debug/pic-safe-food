@@ -292,6 +292,7 @@ const HistoryPage = () => {
         </div>
       )}
 
+      <SideMenu />
       <BottomNav />
     </div>
   );

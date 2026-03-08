@@ -533,6 +533,7 @@ const AdminPage = () => {
         </div>
       )}
 
+      <SideMenu />
       <BottomNav />
     </div>
   );

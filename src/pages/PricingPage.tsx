@@ -172,6 +172,7 @@ const PricingPage = () => {
         </p>
       </div>
 
+      <SideMenu />
       <BottomNav />
     </div>
   );

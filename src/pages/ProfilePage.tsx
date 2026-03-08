@@ -74,6 +74,7 @@ const ProfilePage = () => {
         </div>
       </div>
 
+      <SideMenu />
       <BottomNav />
     </div>
   );
