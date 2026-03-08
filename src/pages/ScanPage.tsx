@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { saveToHistory } from "@/lib/scanHistory";
 import { toast } from "sonner";
 import { useScanLimit } from "@/hooks/useScanLimit";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 type InputMode = "photo" | "barcode" | "ingredients";
 
