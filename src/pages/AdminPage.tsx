@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +34,7 @@ const AdminPage = () => {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [userScans, setUserScans] = useState<Record<string, ScanEntry[]>>({});
   const [loadingScans, setLoadingScans] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ userId: string; email: string; currentPlan: string; newPlan: string } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/");
@@ -277,7 +278,7 @@ const AdminPage = () => {
                       {["free", "basic", "premium"].map((plan) => (
                         <button
                           key={plan}
-                          onClick={() => changePlan(user.id, plan)}
+                          onClick={() => setConfirmDialog({ userId: user.id, email: user.email, currentPlan: user.plan, newPlan: plan })}
                           disabled={updatingUser === user.id || user.plan === plan}
                           className={`flex-1 text-xs font-display font-semibold py-2.5 rounded-xl transition-all disabled:opacity-50 ${
                             user.plan === plan
@@ -338,6 +339,38 @@ const AdminPage = () => {
           <div className="text-center py-12 text-muted-foreground text-sm">No users found</div>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display font-bold text-foreground text-lg">Confirm Plan Change</h3>
+            <p className="text-sm text-muted-foreground">
+              Change <span className="text-foreground font-medium">{confirmDialog.email}</span> from{" "}
+              <span className="font-semibold text-foreground capitalize">{confirmDialog.currentPlan}</span> to{" "}
+              <span className="font-semibold text-primary capitalize">{confirmDialog.newPlan}</span>?
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const { userId, newPlan } = confirmDialog;
+                  setConfirmDialog(null);
+                  await changePlan(userId, newPlan);
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:brightness-110 transition-all"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>
