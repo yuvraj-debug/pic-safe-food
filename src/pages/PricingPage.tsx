@@ -127,7 +127,7 @@ const PricingPage = () => {
                           : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
                       }`}
                     >
-                      <Mail className="w-4 h-4" />
+                      <MessageCircle className="w-4 h-4" />
                       Buy Now
                     </button>
                   )}
