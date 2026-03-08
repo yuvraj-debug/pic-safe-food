@@ -33,14 +33,12 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-gradient-hero flex flex-col pb-24">
       {/* Hero Section */}
-      <div className="flex flex-col items-center pt-12 pb-6 px-6">
-        <div className="flex flex-col items-center gap-5 max-w-sm w-full">
-          {/* Logo */}
-          <img src={logo} alt="FoodScan AI" className="w-16 h-16 rounded-2xl" />
+      <div className="flex flex-col items-center pt-8 sm:pt-12 pb-6 px-4 sm:px-6">
+        <div className="flex flex-col items-center gap-4 sm:gap-5 max-w-md w-full">
+          <img src={logo} alt="FoodScan AI" className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl" />
 
-          {/* Title */}
           <div className="text-center">
-            <h1 className="text-3xl font-bold font-display text-gradient-primary">
+            <h1 className="text-2xl sm:text-3xl font-bold font-display text-gradient-primary">
               FoodScan AI
             </h1>
             <p className="mt-1 text-muted-foreground text-sm">
@@ -48,7 +46,6 @@ const HomePage = () => {
             </p>
           </div>
 
-          {/* Scan limit badge */}
           <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border text-sm">
             <ScanLine className="w-4 h-4 text-primary" />
             <span className="text-muted-foreground">
@@ -57,25 +54,23 @@ const HomePage = () => {
             <span className="text-xs text-muted-foreground capitalize">({planName})</span>
           </div>
 
-          {/* Scan Button */}
           <button
             onClick={() => navigate("/scan")}
-            className="w-full flex items-center justify-center gap-3 bg-primary text-primary-foreground font-display font-semibold text-lg py-4 px-8 rounded-2xl glow-primary hover:brightness-110 active:scale-[0.98] transition-all duration-200"
+            className="w-full max-w-sm flex items-center justify-center gap-3 bg-primary text-primary-foreground font-display font-semibold text-lg py-4 px-8 rounded-2xl glow-primary hover:brightness-110 active:scale-[0.98] transition-all duration-200"
           >
             <ScanLine className="w-6 h-6" />
             Scan Product
           </button>
 
-          {/* How it works */}
-          <div className="grid grid-cols-3 gap-3 w-full mt-1">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full max-w-sm mt-1">
             {[
               { emoji: "📷", label: "Take Photo" },
               { emoji: "🔍", label: "Auto Detect" },
               { emoji: "✅", label: "Get Results" },
             ].map((step, i) => (
-              <div key={i} className="bg-card rounded-xl border border-border p-3 text-center">
-                <span className="text-lg">{step.emoji}</span>
-                <p className="text-xs text-muted-foreground mt-1">{step.label}</p>
+              <div key={i} className="bg-card rounded-xl border border-border p-2.5 sm:p-3 text-center">
+                <span className="text-base sm:text-lg">{step.emoji}</span>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">{step.label}</p>
               </div>
             ))}
           </div>
@@ -84,7 +79,7 @@ const HomePage = () => {
 
       {/* History Section */}
       {history.length > 0 && (
-        <div className="flex-1 px-4 pb-4">
+        <div className="flex-1 px-4 pb-4 max-w-2xl mx-auto w-full">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <History className="w-4 h-4 text-muted-foreground" />
@@ -104,8 +99,8 @@ const HomePage = () => {
                 onClick={() => navigate("/results", { state: { analysis: item.analysis } })}
                 className="w-full bg-gradient-card rounded-xl border border-border p-3 flex items-center gap-3 hover:border-primary/30 active:scale-[0.99] transition-all text-left"
               >
-                <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center border ${getScoreBg(item.safetyScore)}`}>
-                  <span className={`text-lg font-bold font-display ${getScoreColor(item.safetyScore)}`}>
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center border ${getScoreBg(item.safetyScore)}`}>
+                  <span className={`text-base sm:text-lg font-bold font-display ${getScoreColor(item.safetyScore)}`}>
                     {item.safetyScore}
                   </span>
                 </div>
