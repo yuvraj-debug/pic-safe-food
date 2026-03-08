@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      health_profiles: {
+        Row: {
+          allergies: string[]
+          avoid_additives: boolean
+          created_at: string
+          diet_type: string
+          health_conditions: string[]
+          id: string
+          low_sodium_preference: boolean
+          low_sugar_preference: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allergies?: string[]
+          avoid_additives?: boolean
+          created_at?: string
+          diet_type?: string
+          health_conditions?: string[]
+          id?: string
+          low_sodium_preference?: boolean
+          low_sugar_preference?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allergies?: string[]
+          avoid_additives?: boolean
+          created_at?: string
+          diet_type?: string
+          health_conditions?: string[]
+          id?: string
+          low_sodium_preference?: boolean
+          low_sugar_preference?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
