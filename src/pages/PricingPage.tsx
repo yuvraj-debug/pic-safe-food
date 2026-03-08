@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Crown, Zap, Star, Mail } from "lucide-react";
+import { ArrowLeft, Check, Crown, Zap, Star, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/BottomNav";
 import { toast } from "sonner";
