@@ -64,6 +64,8 @@ export function useScanLimit() {
     if (!error && newCount !== null) {
       setScanCount(newCount);
       await supabase.from("scan_logs").insert({ user_id: user.id });
+      // Re-fetch to keep bonusScans and other data in sync
+      await fetchUsage();
       return true;
     }
     return false;
