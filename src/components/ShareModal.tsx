@@ -84,6 +84,7 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
 
     const file = new File([blob], "picsafe-result.png", { type: "image/png" });
 
+    // 1. Try native share with file (works on mobile browsers)
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({
@@ -92,11 +93,52 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
           files: [file],
         });
         return;
-      } catch {}
+      } catch (e: any) {
+        if (e?.name === "AbortError") return; // User cancelled
+      }
     }
 
-    // Fallback: download
-    handleDownload();
+    // 2. Try native share without file (text only — still opens share sheet)
+    if (navigator.share) {
+      try {
+        const isPersonalized = baseScore !== undefined && baseScore !== displayScore;
+        await navigator.share({
+          title: "PicSafe Food Scan Result",
+          text: isPersonalized
+            ? `🔍 ${productName}\n📊 Base Score: ${baseScore}/100\n❤️ Your Score: ${displayScore}/100 (${displayLevel})\n\nScanned with PicSafe Food\n🔗 picsafefood.in`
+            : `🔍 ${productName}\n📊 Score: ${displayScore}/100 (${displayLevel})\n\nScanned with PicSafe Food\n🔗 picsafefood.in`,
+        });
+        // Also download the image so they have it
+        triggerDownload(blob);
+        return;
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+      }
+    }
+
+    // 3. Try copying image to clipboard
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]);
+      toast.success("Image copied to clipboard! Paste it in WhatsApp, Instagram, etc.");
+      return;
+    } catch {}
+
+    // 4. Final fallback: download
+    triggerDownload(blob);
+    toast.success("Image downloaded! Share it on WhatsApp, Instagram, or any app.");
+  };
+
+  const triggerDownload = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `picsafe-${productName.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 30)}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleCopyText = () => {
