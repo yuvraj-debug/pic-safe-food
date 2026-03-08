@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { History, Clock, ChevronRight, Trash2, Loader2, Search, Filter, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
+import { SideMenu } from "@/components/SideMenu";
 import { toast } from "sonner";
 import type { AnalysisResult } from "@/types/analysis";
 
