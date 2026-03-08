@@ -50,7 +50,10 @@ const AdminPage = () => {
   }, [isAdmin, authLoading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) fetchUsers();
+    if (isAdmin) {
+      fetchUsers();
+      fetchIntents();
+    }
   }, [isAdmin]);
 
   const fetchUsers = async () => {
