@@ -1,98 +1,75 @@
 
 
-## Plan: FoodScan AI - Major Feature Additions
+# Plan: Add Barcode Scan & Manual Ingredient Input
 
-This is a large set of changes. Here's the plan broken into phases:
+## Overview
 
----
+Extend the existing ScanPage with two new input methods (barcode and manual text) alongside the current image scan, and update the edge function to accept raw ingredient text directly.
 
-### 1. Replace Safety Meter with Semi-Circle Progress + Arrow Needle
+## Architecture
 
-Replace the current `SafetyMeter` component with the semi-circle gauge from the provided code. The needle/arrow will point based on the score (e.g., 50/100 = middle). Will keep the existing color scheme (red/orange/green zones) and add a gradient fill with animated arrow transition.
+```text
+ScanPage (tabs: Photo | Barcode | Ingredients)
+   ├─ Photo tab → existing image flow → analyze-food(image)
+   ├─ Barcode tab → input/camera → Open Food Facts API → analyze-food(ingredients_text)
+   └─ Ingredients tab → textarea → analyze-food(ingredients_text)
 
----
+Edge Function: analyze-food
+   ├─ if body.image → OCR → Groq analysis (existing)
+   └─ if body.ingredients_text → skip OCR → Groq analysis directly
+```
 
-### 2. Authentication System with Email OTP
+## Changes
 
-**Database tables needed:**
-- `profiles` table (id, email, created_at, daily_scans_used, last_scan_date)
-- `user_roles` table (id, user_id, role enum: admin/user)
-- `user_plans` table (id, user_id, plan enum: free/basic/premium, created_at)
+### 1. Update Edge Function (`supabase/functions/analyze-food/index.ts`)
 
-**Auth flow:**
-- Sign up page: user enters email, receives OTP via email
-- OTP verification page: user enters the 6-digit code
-- On successful verification, profile + free plan auto-created via trigger
-- Login page with same OTP flow
-- Protected routes: redirect unauthenticated users to login
-- Configure auth to use OTP (magic link with OTP) — no password needed
+- Accept an optional `ingredients_text` field alongside `image`
+- If `ingredients_text` is provided, skip the OCR step entirely and pass it directly to the Groq analysis step
+- If `image` is provided, use existing OCR flow
+- Require at least one of the two fields
 
-**Note:** Will enable email auto-confirm since we're using OTP flow (user proves email ownership by entering the code).
+### 2. Redesign ScanPage (`src/pages/ScanPage.tsx`)
 
----
+Replace the single image-upload UI with a tabbed interface using three modes:
 
-### 3. Pricing / Plans Page
+- **Photo** (existing): Camera/gallery image upload, unchanged behavior
+- **Barcode**: Text input for barcode number + a "Scan" button that uses camera. On submit:
+  1. Fetch `https://world.openfoodfacts.org/api/v0/product/{barcode}.json`
+  2. Extract `product_name`, `ingredients_text`, `allergens_tags`, `brands`
+  3. If ingredients found, call `analyze-food` with `ingredients_text`
+  4. If product not found or no ingredients, show error with option to paste manually
+- **Ingredients**: Textarea for pasting raw ingredient text. Submit calls `analyze-food` with `ingredients_text`
 
-Display three plans:
-- **Free** — 1 scan/day, ₹0
-- **Basic** — 10 scans/day, ₹99
-- **Premium** — 99 scans/day, ₹499
+All three paths reuse the same processing state UI (spinner, steps, redirect to results).
 
-Static pricing page (no payment integration unless requested later). Admin can manually change plans.
+### 3. Shared Analysis Helper
 
----
+Extract the post-analysis logic (save to history, save to DB, navigate) into a shared function within ScanPage to avoid duplication across the three input methods.
 
-### 4. Scan Limit Enforcement
+### 4. Processing Steps Update
 
-- Before each scan, check user's plan and daily usage
-- Track scans in a `scan_logs` table (user_id, scanned_at)
-- Count today's scans vs plan limit
-- Show remaining scans on home page
-- Block scan with friendly message when limit reached
+Adjust the step labels dynamically based on input method:
+- Photo: "Reading image" → "Extracting ingredients" → "Analyzing safety"
+- Barcode: "Fetching product" → "Reading ingredients" → "Analyzing safety"  
+- Ingredients: "Reading ingredients" → "Analyzing safety"
 
----
+### 5. UI Design
 
-### 5. Admin Panel
+The tab selector will sit above the current content area using pill-style buttons. Each tab shows its own input UI below. The processing and limit-reached states remain shared.
 
-- Route: `/admin` — only accessible by `ys8800221@gmail.com`
-- Seed admin role for this email via migration
-- Dashboard showing: all registered users, their plan, scan count
-- Ability to change any user's plan
-- RLS policies: admin can read all profiles/plans, users can only read own
-- Use `has_role` security definer function for RLS
+### 6. Error Handling
 
----
+- Barcode not found: Toast error + suggest switching to Ingredients tab
+- No ingredients in product data: Toast + suggest manual input
+- API failures: Existing error handling applies
+- Empty textarea submission: Client-side validation
 
-### 6. Mobile-Responsive UI Polish
+## Files Modified
 
-- Ensure all pages work well on small screens (already mostly mobile-first)
-- Fix any overflow or spacing issues
-- Improve card layouts, button sizes, typography for mobile
-- Add bottom navigation bar for mobile (Home, Scan, Pricing, Profile)
+| File | Change |
+|------|--------|
+| `supabase/functions/analyze-food/index.ts` | Accept `ingredients_text`, skip OCR when provided |
+| `src/pages/ScanPage.tsx` | Add tabbed UI with barcode + manual input modes |
 
----
-
-### Technical Details
-
-**Database migrations (in order):**
-1. Create `app_role` enum, `app_plan` enum
-2. Create `profiles`, `user_roles`, `user_plans`, `scan_logs` tables
-3. Create `has_role` security definer function
-4. RLS policies on all tables
-5. Trigger to auto-create profile + free plan on signup
-6. Insert admin role for `ys8800221@gmail.com` (will run after they sign up, or use a trigger)
-
-**New pages/components:**
-- `src/pages/AuthPage.tsx` — email input + OTP verification
-- `src/pages/PricingPage.tsx` — plan display
-- `src/pages/AdminPage.tsx` — user management
-- `src/components/BottomNav.tsx` — mobile navigation
-- `src/hooks/useAuth.ts` — auth state management
-- `src/hooks/useScanLimit.ts` — scan limit checking
-
-**Route updates in App.tsx:**
-- `/auth` — public
-- `/pricing` — public
-- `/admin` — protected (admin only)
-- All other routes — protected (authenticated)
+No new routes, database changes, or dependencies needed. Open Food Facts API is public and requires no key.
 
