@@ -311,6 +311,7 @@ const ResultsPage = () => {
             displayScore={displayScore}
             displayLevel={displayLevel}
             baseScore={personalized ? personalized.baseScore : undefined}
+            userPlan={userPlan}
             onClose={() => setShowShareModal(false)}
           />
         )}

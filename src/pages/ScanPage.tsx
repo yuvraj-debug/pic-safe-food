@@ -288,7 +288,7 @@ const ScanPage = () => {
             </div>
             <h3 className="font-display font-semibold text-xl text-foreground">Scan Limit Reached</h3>
             <p className="text-muted-foreground text-sm max-w-xs">
-              You've used all {limit} scans for today. Upgrade your plan for more daily scans.
+              You've used all {limit} scans this month. Upgrade your plan for more scans.
             </p>
             <button
               onClick={() => navigate("/pricing")}

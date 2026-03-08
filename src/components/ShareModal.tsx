@@ -187,6 +187,7 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
           displayLevel={displayLevel}
           productName={productName}
           baseScore={baseScore}
+          userPlan={userPlan}
         />
       </div>
 

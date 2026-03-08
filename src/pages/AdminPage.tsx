@@ -359,7 +359,7 @@ const AdminPage = () => {
                   <div>
                     <p className="text-xs text-muted-foreground mb-2 font-medium">Change Plan</p>
                     <div className="flex items-center gap-2">
-                      {["free", "basic", "premium"].map((plan) => (
+                      {["free", "basic", "pro", "lifetime"].map((plan) => (
                         <button
                           key={plan}
                           onClick={() => setConfirmDialog({ userId: user.id, email: user.email, currentPlan: user.plan, newPlan: plan })}

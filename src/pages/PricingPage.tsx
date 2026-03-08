@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Crown, Zap, Star, MessageCircle } from "lucide-react";
+import { ArrowLeft, Check, Crown, Zap, Star, Gem, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/BottomNav";
 import { SideMenu } from "@/components/SideMenu";
@@ -11,9 +11,9 @@ const plans = [
     name: "Free",
     price: "₹0",
     period: "forever",
-    scans: "1 scan / day",
+    scans: "20 scans / month",
     icon: <Zap className="w-6 h-6" />,
-    features: ["1 daily scan", "Basic analysis", "Safety score"],
+    features: ["20 monthly scans", "Basic ingredient analysis", "Safety score", "Watermark on share cards"],
     plan: "free",
     popular: false,
   },
@@ -21,20 +21,30 @@ const plans = [
     name: "Basic",
     price: "₹99",
     period: "/ month",
-    scans: "10 scans / day",
+    scans: "100 scans / month",
     icon: <Star className="w-6 h-6" />,
-    features: ["10 daily scans", "Detailed analysis", "Ingredient breakdown", "Health warnings"],
+    features: ["100 monthly scans", "Personalized health scoring", "Full ingredient explanations", "No watermark on shares", "Health warnings"],
     plan: "basic",
     popular: true,
   },
   {
-    name: "Premium",
-    price: "₹499",
+    name: "Pro",
+    price: "₹249",
     period: "/ month",
-    scans: "99 scans / day",
+    scans: "300 scans / month",
     icon: <Crown className="w-6 h-6" />,
-    features: ["99 daily scans", "Full detailed analysis", "Priority processing", "Allergen alerts", "Consumption advice"],
-    plan: "premium",
+    features: ["300 monthly scans", "Everything in Basic", "Family health profiles", "Product comparison", "Safer alternatives", "Advanced nutrition insights"],
+    plan: "pro",
+    popular: false,
+  },
+  {
+    name: "Lifetime",
+    price: "₹999",
+    period: "one-time",
+    scans: "500 scans / month",
+    icon: <Gem className="w-6 h-6" />,
+    features: ["500 monthly scans", "All Pro features", "No subscription renewal", "Lifetime access forever", "Priority support"],
+    plan: "lifetime",
     popular: false,
   },
 ];
@@ -47,21 +57,16 @@ const PricingPage = () => {
   const { userPlan } = useAuth();
 
   const handleBuyNow = async (planName: string, planKey: string, price: string) => {
-    // Track purchase intent
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from("purchase_intents").insert({
-        user_id: user.id,
-        plan: planKey,
-      });
+      await supabase.from("purchase_intents").insert({ user_id: user.id, plan: planKey });
     }
 
     const message = encodeURIComponent(
-      `Hi, I would like to upgrade my plan to ${planName} (${price}/month) on PicSafe Food. Please share the payment details.\n\nEmail: ${user?.email || "N/A"}`
+      `Hi, I would like to upgrade my plan to ${planName} (${price}) on PicSafe Food. Please share the payment details.\n\nEmail: ${user?.email || "N/A"}`
     );
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
 
-    // Use a temporary <a> tag to reliably open WhatsApp (like a real link click)
     const a = document.createElement("a");
     a.href = whatsappUrl;
     a.target = "_blank";
@@ -84,7 +89,6 @@ const PricingPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
       <div className="flex items-center gap-3 p-4 max-w-3xl mx-auto">
         <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-6 h-6" />
@@ -97,7 +101,7 @@ const PricingPage = () => {
           Choose a plan that fits your needs
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {plans.map((plan) => {
             const isCurrent = userPlan === plan.plan;
             return (
@@ -111,7 +115,7 @@ const PricingPage = () => {
               >
                 {plan.popular && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full bg-primary text-primary-foreground">
-                    POPULAR
+                    MOST POPULAR
                   </span>
                 )}
 
@@ -129,7 +133,7 @@ const PricingPage = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2 mt-4 flex-1">
+                <div className="space-y-2 mt-2 flex-1">
                   {plan.features.map((f, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm text-secondary-foreground">
                       <Check className="w-4 h-4 text-primary shrink-0" />
@@ -138,7 +142,6 @@ const PricingPage = () => {
                   ))}
                 </div>
 
-                {/* Buy Now / Current Plan button */}
                 <div className="mt-5">
                   {isCurrent ? (
                     <div className="w-full text-center text-sm font-semibold text-primary py-3 rounded-xl border border-primary/30 bg-primary/5">
