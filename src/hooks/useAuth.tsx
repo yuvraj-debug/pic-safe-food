@@ -40,22 +40,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        console.log("[useAuth] onAuthStateChange:", _event, !!session);
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fire and forget - don't await inside onAuthStateChange
           fetchUserData(session.user.id);
         } else {
           setIsAdmin(false);
           setUserPlan("free");
         }
+        // Also set loading false here in case getSession is slow
+        if (mounted) setLoading(false);
       }
     );
 
     // THEN get initial session
+    console.log("[useAuth] calling getSession...");
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("[useAuth] getSession resolved:", !!session);
       if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
@@ -63,7 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchUserData(session.user.id);
       }
       setLoading(false);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error("[useAuth] getSession failed:", err);
       if (mounted) setLoading(false);
     });
 
