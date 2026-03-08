@@ -10,6 +10,7 @@ import ResultsPage from "./pages/ResultsPage";
 import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import PricingPage from "./pages/PricingPage";
+import HistoryPage from "./pages/HistoryPage";
 
 import ProfilePage from "./pages/ProfilePage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
