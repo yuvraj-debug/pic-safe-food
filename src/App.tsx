@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import ScanPage from "./pages/ScanPage";
 import ResultsPage from "./pages/ResultsPage";
 import AuthPage from "./pages/AuthPage";
+import AdminPage from "./pages/AdminPage";
 import PricingPage from "./pages/PricingPage";
 
 import ProfilePage from "./pages/ProfilePage";
