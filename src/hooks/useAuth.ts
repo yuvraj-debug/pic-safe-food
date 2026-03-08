@@ -1,8 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-export function useAuth() {
+interface AuthState {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  isAdmin: boolean;
+  userPlan: string;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthState | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -13,46 +24,48 @@ export function useAuth() {
     let mounted = true;
 
     const fetchUserData = async (userId: string) => {
-      const [{ data: roles }, { data: plan }] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", userId),
-        supabase.from("user_plans").select("plan").eq("user_id", userId).single(),
-      ]);
-      if (!mounted) return;
-      setIsAdmin(roles?.some((r: any) => r.role === "admin") ?? false);
-      setUserPlan(plan?.plan ?? "free");
+      try {
+        const [{ data: roles }, { data: plan }] = await Promise.all([
+          supabase.from("user_roles").select("role").eq("user_id", userId),
+          supabase.from("user_plans").select("plan").eq("user_id", userId).single(),
+        ]);
+        if (!mounted) return;
+        setIsAdmin(roles?.some((r: any) => r.role === "admin") ?? false);
+        setUserPlan(plan?.plan ?? "free");
+      } catch (e) {
+        console.error("Failed to fetch user data:", e);
+      }
     };
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        try {
-          await fetchUserData(session.user.id);
-        } catch (e) {
-          console.error("Failed to fetch user data:", e);
-        }
-      }
-      if (mounted) setLoading(false);
-    }).catch((err) => {
-      console.error("Failed to get session:", err);
-      if (mounted) setLoading(false);
-    });
-
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
+        
         if (session?.user) {
-          await fetchUserData(session.user.id);
+          // Fire and forget - don't await inside onAuthStateChange
+          fetchUserData(session.user.id);
         } else {
           setIsAdmin(false);
           setUserPlan("free");
         }
-        if (mounted) setLoading(false);
       }
     );
+
+    // THEN get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserData(session.user.id);
+      }
+      setLoading(false);
+    }).catch(() => {
+      if (mounted) setLoading(false);
+    });
 
     return () => {
       mounted = false;
@@ -64,5 +77,19 @@ export function useAuth() {
     await supabase.auth.signOut();
   };
 
-  return { user, session, loading, isAdmin, userPlan, signOut };
+  const value = { user, session, loading, isAdmin, userPlan, signOut };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return ctx;
 }
