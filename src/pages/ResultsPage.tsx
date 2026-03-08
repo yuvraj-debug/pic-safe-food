@@ -38,10 +38,10 @@ const ResultsPage = () => {
   const canPersonalize = userPlan !== "free";
 
   useEffect(() => {
-    if (analysis && !profileLoading && hasProfile) {
+    if (analysis && !profileLoading && hasProfile && canPersonalize) {
       setPersonalized(computePersonalizedScore(analysis, profile));
     }
-  }, [analysis, profile, profileLoading, hasProfile]);
+  }, [analysis, profile, profileLoading, hasProfile, canPersonalize]);
 
   if (!analysis) {
     return (
