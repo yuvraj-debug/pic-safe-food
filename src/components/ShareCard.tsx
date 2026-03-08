@@ -7,6 +7,7 @@ interface ShareCardProps {
   displayLevel: string;
   productName: string;
   baseScore?: number;
+  userPlan?: string;
 }
 
 const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
