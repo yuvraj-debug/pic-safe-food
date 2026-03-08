@@ -4,10 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft, Users, Crown, Loader2, Search, RefreshCw,
-  Shield, BarChart3, Mail, Calendar, ChevronDown, ChevronUp,
+  Shield, BarChart3, Mail, Calendar, ChevronDown, ChevronUp, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
+
+interface ScanEntry {
+  id: string;
+  scanned_at: string;
+}
 
 interface UserRow {
   id: string;
@@ -27,6 +32,8 @@ const AdminPage = () => {
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"date" | "scans">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [userScans, setUserScans] = useState<Record<string, ScanEntry[]>>({});
+  const [loadingScans, setLoadingScans] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/");
@@ -59,6 +66,25 @@ const AdminPage = () => {
 
     setUsers(userList);
     setLoading(false);
+  };
+
+  const fetchUserScans = async (userId: string) => {
+    if (userScans[userId]) return;
+    setLoadingScans(userId);
+    const { data } = await supabase
+      .from("scan_logs")
+      .select("id, scanned_at")
+      .eq("user_id", userId)
+      .order("scanned_at", { ascending: false })
+      .limit(50);
+    setUserScans((prev) => ({ ...prev, [userId]: data ?? [] }));
+    setLoadingScans(null);
+  };
+
+  const handleExpand = (userId: string) => {
+    const isExpanding = expandedUser !== userId;
+    setExpandedUser(isExpanding ? userId : null);
+    if (isExpanding) fetchUserScans(userId);
   };
 
   const changePlan = async (userId: string, newPlan: string) => {
@@ -202,10 +228,11 @@ const AdminPage = () => {
 
         {sortedUsers.map((user) => {
           const isExpanded = expandedUser === user.id;
+          const scans = userScans[user.id] ?? [];
           return (
             <div key={user.id} className="bg-gradient-card rounded-2xl border border-border overflow-hidden">
               <button
-                onClick={() => setExpandedUser(isExpanded ? null : user.id)}
+                onClick={() => handleExpand(user.id)}
                 className="w-full p-4 flex items-center justify-between text-left"
               >
                 <div className="min-w-0 flex-1">
@@ -269,6 +296,37 @@ const AdminPage = () => {
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Scan History */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Scan History
+                    </p>
+                    {loadingScans === user.id ? (
+                      <div className="flex justify-center py-3">
+                        <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                      </div>
+                    ) : scans.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-3">No scans yet</p>
+                    ) : (
+                      <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                        {scans.map((scan) => (
+                          <div
+                            key={scan.id}
+                            className="flex items-center justify-between bg-secondary/50 rounded-lg px-3 py-2 text-xs"
+                          >
+                            <span className="text-foreground">
+                              {new Date(scan.scanned_at).toLocaleDateString()}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {new Date(scan.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
