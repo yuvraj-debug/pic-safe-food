@@ -9,7 +9,7 @@ import ScanPage from "./pages/ScanPage";
 import ResultsPage from "./pages/ResultsPage";
 import AuthPage from "./pages/AuthPage";
 import PricingPage from "./pages/PricingPage";
-import AdminPage from "./pages/AdminPage";
+
 import ProfilePage from "./pages/ProfilePage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound";
@@ -51,7 +51,7 @@ const AppRoutes = () => {
       <Route path="/scan" element={<ProtectedRoute><ScanPage /></ProtectedRoute>} />
       <Route path="/results" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
       <Route path="/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+      
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
