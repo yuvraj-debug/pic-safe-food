@@ -11,7 +11,8 @@ interface ShareCardProps {
 }
 
 const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
-  ({ analysis, displayScore, displayLevel, productName, baseScore }, ref) => {
+  ({ analysis, displayScore, displayLevel, productName, baseScore, userPlan = "free" }, ref) => {
+    const isFree = userPlan === "free";
     const isPersonalized = baseScore !== undefined && baseScore !== displayScore;
 
     const scoreColor =
