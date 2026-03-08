@@ -60,22 +60,42 @@ const PricingPage = () => {
     );
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
 
-    // Use link click to avoid iframe blocking
-    const a = document.createElement("a");
-    a.href = whatsappUrl;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Robust WhatsApp opener: works in browsers, iframes, and WebViews
+    const openWhatsApp = () => {
+      // WebView (React Native / Android wrapper)
+      if ((window as any).ReactNativeWebView) {
+        window.location.href = whatsappUrl;
+        return;
+      }
+
+      // Try window.open first (works in most browsers)
+      const win = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+      // If blocked (iframe/popup blocker), fall back to top-level navigation
+      if (!win || win.closed) {
+        // Try top-level navigation for iframe environments
+        try {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = whatsappUrl;
+            return;
+          }
+        } catch {
+          // Cross-origin top — can't access
+        }
+        // Last resort: navigate current frame
+        window.location.href = whatsappUrl;
+      }
+    };
+
+    openWhatsApp();
 
     toast.success("Opening WhatsApp...", {
-      description: "If WhatsApp didn't open, copy the link and open manually.",
+      description: "If WhatsApp didn't open, tap below to copy the link.",
       action: {
         label: "Copy Link",
         onClick: () => {
           navigator.clipboard.writeText(whatsappUrl);
-          toast.success("WhatsApp link copied!");
+          toast.success("WhatsApp link copied to clipboard!");
         },
       },
     });
