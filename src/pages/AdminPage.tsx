@@ -45,6 +45,10 @@ const AdminPage = () => {
   const [loadingScans, setLoadingScans] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ userId: string; email: string; currentPlan: string; newPlan: string } | null>(null);
   const [intents, setIntents] = useState<PurchaseIntent[]>([]);
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [apiKeyVisible, setApiKeyVisible] = useState<Record<string, boolean>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, "saved" | "error" | null>>({});
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/");
