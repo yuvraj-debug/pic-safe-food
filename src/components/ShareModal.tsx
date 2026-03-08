@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import html2canvas from "html2canvas";
 import { Share2, Download, Copy, X, Loader2, Image } from "lucide-react";
 import { toast } from "sonner";
@@ -15,11 +15,31 @@ interface Props {
 const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const productName =
     analysis.overall_verdict ||
     analysis.product_summary?.split(".")[0]?.slice(0, 60) ||
     "Product Analysis";
+
+  // Generate a preview image on mount
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!cardRef.current) return;
+      try {
+        const canvas = await html2canvas(cardRef.current, {
+          scale: 0.35,
+          useCORS: true,
+          backgroundColor: "#0d1117",
+          logging: false,
+        });
+        setPreviewUrl(canvas.toDataURL("image/png"));
+      } catch {
+        // Preview failed, that's ok
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const generateImage = useCallback(async (): Promise<Blob | null> => {
     if (!cardRef.current) return null;
@@ -28,9 +48,8 @@ const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) =>
       const canvas = await html2canvas(cardRef.current, {
         scale: 1,
         useCORS: true,
-        backgroundColor: null,
-        width: 1080,
-        height: 1080,
+        backgroundColor: "#0d1117",
+        logging: false,
       });
       return new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob), "image/png", 1.0);
@@ -107,6 +126,28 @@ const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) =>
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      {/* Off-screen full-size card for html2canvas */}
+      <div
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: 0,
+          width: 1080,
+          height: 1080,
+          overflow: "hidden",
+          pointerEvents: "none",
+        }}
+        aria-hidden="true"
+      >
+        <ShareCard
+          ref={cardRef}
+          analysis={analysis}
+          displayScore={displayScore}
+          displayLevel={displayLevel}
+          productName={productName}
+        />
+      </div>
+
       <div className="bg-card border border-border rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
@@ -124,21 +165,16 @@ const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) =>
 
         {/* Preview */}
         <div className="p-4">
-          <div className="rounded-2xl overflow-hidden border border-border shadow-lg">
-            <div style={{ transform: "scale(0.33)", transformOrigin: "top left", width: 1080, height: 1080 }}>
-              <div style={{ width: "100%", height: "100%" }}>
-                <ShareCard
-                  ref={cardRef}
-                  analysis={analysis}
-                  displayScore={displayScore}
-                  displayLevel={displayLevel}
-                  productName={productName}
-                />
+          <div className="rounded-2xl overflow-hidden border border-border shadow-lg bg-[#0d1117] aspect-square flex items-center justify-center">
+            {previewUrl ? (
+              <img src={previewUrl} alt="Share card preview" className="w-full h-full object-contain" />
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span className="text-xs">Generating preview...</span>
               </div>
-            </div>
+            )}
           </div>
-          {/* Container height fix for scaled preview */}
-          <div style={{ marginTop: -1080 * 0.67 }} />
         </div>
 
         {/* Actions */}
