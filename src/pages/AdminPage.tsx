@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft, Users, Crown, Loader2, Search, RefreshCw,
-  Shield, BarChart3, Mail, Calendar, ChevronDown, ChevronUp, Clock,
+  Shield, BarChart3, Mail, Calendar, ChevronDown, ChevronUp, Clock, ShoppingCart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
@@ -22,6 +22,14 @@ interface UserRow {
   scan_count: number;
 }
 
+interface PurchaseIntent {
+  id: string;
+  user_id: string;
+  plan: string;
+  created_at: string;
+  email?: string;
+}
+
 const AdminPage = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: authLoading } = useAuth();
@@ -35,13 +43,17 @@ const AdminPage = () => {
   const [userScans, setUserScans] = useState<Record<string, ScanEntry[]>>({});
   const [loadingScans, setLoadingScans] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ userId: string; email: string; currentPlan: string; newPlan: string } | null>(null);
+  const [intents, setIntents] = useState<PurchaseIntent[]>([]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/");
   }, [isAdmin, authLoading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) fetchUsers();
+    if (isAdmin) {
+      fetchUsers();
+      fetchIntents();
+    }
   }, [isAdmin]);
 
   const fetchUsers = async () => {
@@ -67,6 +79,16 @@ const AdminPage = () => {
 
     setUsers(userList);
     setLoading(false);
+  };
+
+  const fetchIntents = async () => {
+    const [{ data: intentData }, { data: profiles }] = await Promise.all([
+      supabase.from("purchase_intents").select("*").order("created_at", { ascending: false }).limit(50),
+      supabase.from("profiles").select("id, email"),
+    ]);
+    const emailMap: Record<string, string> = {};
+    profiles?.forEach((p: any) => { emailMap[p.id] = p.email; });
+    setIntents((intentData ?? []).map((i: any) => ({ ...i, email: emailMap[i.user_id] || "Unknown" })));
   };
 
   const fetchUserScans = async (userId: string) => {
@@ -340,7 +362,32 @@ const AdminPage = () => {
         )}
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* Purchase Intents */}
+      {intents.length > 0 && (
+        <div className="px-4 mt-6 space-y-3">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider flex items-center gap-1.5">
+            <ShoppingCart className="w-3.5 h-3.5" />
+            Recent Purchase Intents ({intents.length})
+          </p>
+          <div className="space-y-2">
+            {intents.map((intent) => (
+              <div key={intent.id} className="bg-gradient-card rounded-xl border border-border p-3 flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground truncate">{intent.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(intent.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <span className={`text-[10px] font-display font-bold uppercase px-2 py-1 rounded-lg shrink-0 ${planColors[intent.plan] || "bg-muted text-muted-foreground"}`}>
+                  {intent.plan}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+
       {confirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
           <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">

@@ -32,6 +32,27 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_intents: {
+        Row: {
+          created_at: string
+          id: string
+          plan: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       scan_logs: {
         Row: {
           id: string

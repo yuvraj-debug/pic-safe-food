@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, Crown, Zap, Star, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/BottomNav";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const plans = [
@@ -44,7 +45,16 @@ const PricingPage = () => {
   const navigate = useNavigate();
   const { userPlan } = useAuth();
 
-  const handleBuyNow = (planName: string) => {
+  const handleBuyNow = async (planName: string, planKey: string) => {
+    // Track purchase intent
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("purchase_intents").insert({
+        user_id: user.id,
+        plan: planKey,
+      });
+    }
+
     const message = encodeURIComponent(
       `Hi, I would like to upgrade my plan to ${planName} on PicSafe Food. Please share the payment details.`
     );
@@ -126,7 +136,7 @@ const PricingPage = () => {
                     </div>
                   ) : (
                     <button
-                      onClick={() => handleBuyNow(plan.name)}
+                      onClick={() => handleBuyNow(plan.name, plan.plan)}
                       className={`w-full flex items-center justify-center gap-2 font-display font-semibold py-3 rounded-xl transition-all active:scale-[0.97] ${
                         plan.popular
                           ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110"
