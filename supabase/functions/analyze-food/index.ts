@@ -6,6 +6,68 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const ANALYSIS_SYSTEM_PROMPT = `You are a food ingredient safety expert. Analyze food ingredient lists and return a JSON object with this EXACT structure (no markdown, no extra text, ONLY valid JSON):
+{
+  "safety_score": <number 0-100>,
+  "safety_level": "<string like Safe to Consume / Moderately Safe / Unsafe>",
+  "product_summary": "<short description of product>",
+  "simple_summary": "<2-3 sentence explanation in very simple language that anyone can understand, like explaining to a child>",
+  "harmful_ingredients": ["<list of harmful ingredients>"],
+  "beneficial_ingredients": ["<list of good ingredients>"],
+  "allergens": ["<detected allergens like milk, gluten, soy, nuts, eggs>"],
+  "ingredient_explanations": [{"ingredient": "<name>", "use": "<purpose>", "health_impact": "<effect on health>", "risk_level": "<low/medium/high>"}],
+  "health_warnings": ["<health warnings>"],
+  "recommendation": "<simple advice: safe to eat regularly / eat occasionally / avoid frequently>",
+  "overall_verdict": "<one line verdict like: This snack is okay sometimes but not daily>"
+}`;
+
+async function tryOpenFoodFacts(barcode: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status !== 1 || !data.product) return null;
+
+    const p = data.product;
+    const parts: string[] = [];
+    if (p.product_name) parts.push(`Product: ${p.product_name}`);
+    if (p.brands) parts.push(`Brand: ${p.brands}`);
+    if (p.ingredients_text) parts.push(`Ingredients: ${p.ingredients_text}`);
+    if (p.allergens_tags?.length) parts.push(`Allergens: ${p.allergens_tags.join(", ")}`);
+    if (p.nutriments) {
+      const n = p.nutriments;
+      const nutrients: string[] = [];
+      if (n.sugars_100g !== undefined) nutrients.push(`Sugar: ${n.sugars_100g}g/100g`);
+      if (n.fat_100g !== undefined) nutrients.push(`Fat: ${n.fat_100g}g/100g`);
+      if (n.salt_100g !== undefined) nutrients.push(`Salt: ${n.salt_100g}g/100g`);
+      if (n["energy-kcal_100g"] !== undefined) nutrients.push(`Energy: ${n["energy-kcal_100g"]}kcal/100g`);
+      if (nutrients.length) parts.push(`Nutrition: ${nutrients.join(", ")}`);
+    }
+
+    return parts.length >= 2 ? parts.join("\n") : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractBarcode(text: string): string | null {
+  const cleaned = text.replace(/\s+/g, "").trim();
+  // EAN-13, EAN-8, UPC-A patterns
+  const match = cleaned.match(/\b(\d{8}|\d{12,13})\b/);
+  return match ? match[1] : null;
+}
+
+function isInsufficientText(text: string): boolean {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  // If it's just a barcode number or very short text
+  if (/^\d{8,13}$/.test(cleaned)) return true;
+  if (cleaned.length < 30) return true;
+  // Check if text has "no text found" or similar
+  if (cleaned.toLowerCase().includes("no text found")) return true;
+  if (cleaned.toLowerCase().includes("unable to extract")) return true;
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -30,7 +92,6 @@ serve(async (req) => {
     let extractedText: string;
 
     if (ingredients_text) {
-      // Direct text input — skip OCR
       extractedText = ingredients_text;
       console.log("Using provided ingredients text directly");
     } else {
@@ -54,14 +115,14 @@ serve(async (req) => {
               {
                 role: "system",
                 content:
-                  "You are an OCR specialist. Extract ALL text visible in the image. Focus especially on finding the ingredients list. Return ONLY the extracted text, nothing else.",
+                  "You are an OCR specialist. Extract ALL text visible in the image. Focus especially on finding the ingredients list, product name, brand name, nutrition info, and any barcodes. Return ONLY the extracted text, nothing else.",
               },
               {
                 role: "user",
                 content: [
                   {
                     type: "text",
-                    text: "Extract all text from this food product image, especially the ingredients list.",
+                    text: "Extract all text from this food product image, especially the ingredients list, product name, brand, and any barcode numbers.",
                   },
                   {
                     type: "image_url",
@@ -89,10 +150,30 @@ serve(async (req) => {
       }
 
       const ocrData = await ocrResponse.json();
-      extractedText = ocrData.choices?.[0]?.message?.content || "No text found";
+      extractedText = ocrData.choices?.[0]?.message?.content || "";
     }
 
     console.log("Text for analysis:", extractedText.substring(0, 200));
+
+    // If text is insufficient, try barcode lookup via Open Food Facts
+    if (isInsufficientText(extractedText)) {
+      const barcode = extractBarcode(extractedText);
+      if (barcode) {
+        console.log("Insufficient text, trying Open Food Facts for barcode:", barcode);
+        const offData = await tryOpenFoodFacts(barcode);
+        if (offData) {
+          console.log("Found product on Open Food Facts:", offData.substring(0, 200));
+          extractedText = offData;
+        } else {
+          console.log("Product not found on Open Food Facts, using barcode for AI lookup");
+          extractedText = `Barcode: ${barcode}. This is a food product with this barcode. Based on your knowledge of common food products with this barcode, provide your best analysis. If you can identify the product, analyze its typical ingredients. If you cannot identify it, still provide a reasonable safety assessment based on what this barcode typically corresponds to.`;
+        }
+      } else {
+        // No barcode found, but text is too short — ask AI to do its best
+        console.log("Insufficient text extracted, no barcode found. Asking AI to analyze what's available.");
+        extractedText = `The following limited text was extracted from a food product image: "${extractedText}". Based on this limited information and your knowledge of food products, provide your best analysis. Identify the product if possible and analyze its typical ingredients. Do NOT say you lack information — give your best assessment.`;
+      }
+    }
 
     // Analyze ingredients using Groq
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -106,24 +187,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a food ingredient safety expert. Analyze food ingredient lists and return a JSON object with this EXACT structure (no markdown, no extra text, ONLY valid JSON):
-{
-  "safety_score": <number 0-100>,
-  "safety_level": "<string like Safe to Consume / Moderately Safe / Unsafe>",
-  "product_summary": "<short description of product>",
-  "simple_summary": "<2-3 sentence explanation in very simple language that anyone can understand, like explaining to a child>",
-  "harmful_ingredients": ["<list of harmful ingredients>"],
-  "beneficial_ingredients": ["<list of good ingredients>"],
-  "allergens": ["<detected allergens like milk, gluten, soy, nuts, eggs>"],
-  "ingredient_explanations": [{"ingredient": "<name>", "use": "<purpose>", "health_impact": "<effect on health>", "risk_level": "<low/medium/high>"}],
-  "health_warnings": ["<health warnings>"],
-  "recommendation": "<simple advice: safe to eat regularly / eat occasionally / avoid frequently>",
-  "overall_verdict": "<one line verdict like: This snack is okay sometimes but not daily>"
-}`
+            content: ANALYSIS_SYSTEM_PROMPT + `\n\nIMPORTANT: Always provide a meaningful analysis. If you can identify the product (by name, brand, or barcode), use your knowledge of its typical ingredients. Never return a generic "lack of information" response — always score the product to the best of your ability.`
           },
           {
             role: "user",
-            content: `Analyze these food product ingredients and return ONLY valid JSON:\n\n${extractedText}`
+            content: `Analyze this food product and return ONLY valid JSON:\n\n${extractedText}`
           }
         ],
         temperature: 0.3,
