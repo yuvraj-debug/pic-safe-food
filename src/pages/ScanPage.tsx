@@ -118,6 +118,16 @@ const ScanPage = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      if (data?.unable_to_fetch) {
+        toast.error(data.message || "Unable to fetch product details. Please try scanning the ingredients list.", {
+          duration: 5000,
+          action: { label: "Paste ingredients", onClick: () => { setMode("ingredients"); } },
+        });
+        setIsProcessing(false);
+        setStatus("");
+        setActiveStep(0);
+        return;
+      }
 
       const thumbnail = base64.length > 50000 ? undefined : base64;
       await handleAnalysisComplete(data, thumbnail);
