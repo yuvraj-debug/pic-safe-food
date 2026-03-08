@@ -57,6 +57,7 @@ const AppRoutes = () => {
       <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+      <Route path="/health-profile" element={<ProtectedRoute><HealthProfilePage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

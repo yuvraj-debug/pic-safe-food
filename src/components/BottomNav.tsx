@@ -11,6 +11,7 @@ export const BottomNav = () => {
     { icon: Home, label: "Home", path: "/" },
     { icon: ScanLine, label: "Scan", path: "/scan" },
     { icon: History, label: "History", path: "/history" },
+    { icon: Heart, label: "Health", path: "/health-profile" },
     { icon: CreditCard, label: "Plans", path: "/pricing" },
     ...(isAdmin ? [{ icon: Crown, label: "Admin", path: "/admin" }] : []),
     { icon: User, label: "Profile", path: "/profile" },
