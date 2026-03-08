@@ -15,6 +15,7 @@ import HistoryPage from "./pages/HistoryPage";
 import ProfilePage from "./pages/ProfilePage";
 import HealthProfilePage from "./pages/HealthProfilePage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import EarnScansPage from "./pages/EarnScansPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
