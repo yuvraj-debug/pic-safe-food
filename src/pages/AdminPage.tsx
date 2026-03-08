@@ -34,6 +34,7 @@ const AdminPage = () => {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [userScans, setUserScans] = useState<Record<string, ScanEntry[]>>({});
   const [loadingScans, setLoadingScans] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ userId: string; email: string; currentPlan: string; newPlan: string } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/");
