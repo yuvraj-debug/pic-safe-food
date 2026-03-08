@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, ScanLine, CreditCard, User, Crown, History } from "lucide-react";
+import { Home, ScanLine, CreditCard, User, Crown, History, Heart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const BottomNav = () => {
