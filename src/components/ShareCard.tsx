@@ -20,6 +20,11 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
         ? "#f59e0b"
         : "#34d399";
 
+    const baseScoreColor =
+      baseScore !== undefined
+        ? baseScore <= 30 ? "#e5484d" : baseScore <= 60 ? "#f59e0b" : "#34d399"
+        : scoreColor;
+
     const topConcerns = analysis.harmful_ingredients.slice(0, 3);
     const topBenefits = analysis.beneficial_ingredients.slice(0, 2);
 
@@ -182,18 +187,32 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
 
             {/* Product Info */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 36, fontWeight: 800, color: "#f9fafb", marginBottom: 8, lineHeight: 1.1 }}>
+              <div style={{ fontSize: 36, fontWeight: 800, color: "#f9fafb", marginBottom: 10, lineHeight: 1.1 }}>
                 {productName}
               </div>
               {isPersonalized ? (
-                <>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: "#e5e7eb", marginBottom: 4 }}>
-                    Personalized Score
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{
+                      fontSize: 16, fontWeight: 600, color: "#9ca3af",
+                      padding: "5px 14px", borderRadius: 10,
+                      background: `${baseScoreColor}15`, border: `1px solid ${baseScoreColor}30`,
+                    }}>
+                      Base: <span style={{ color: baseScoreColor, fontWeight: 700 }}>{baseScore}</span>/100
+                    </div>
+                    <span style={{ fontSize: 18, color: "#4b5563" }}>→</span>
+                    <div style={{
+                      fontSize: 16, fontWeight: 600, color: "#9ca3af",
+                      padding: "5px 14px", borderRadius: 10,
+                      background: `${scoreColor}15`, border: `1px solid ${scoreColor}30`,
+                    }}>
+                      Yours: <span style={{ color: scoreColor, fontWeight: 700 }}>{displayScore}</span>/100
+                    </div>
                   </div>
-                  <div style={{ fontSize: 16, color: "#9ca3af" }}>
-                    (Adjusted for your health profile)
+                  <div style={{ fontSize: 15, color: "#6b7280", fontStyle: "italic" }}>
+                    ❤️ Personalized for your health profile
                   </div>
-                </>
+                </div>
               ) : (
                 <div style={{ fontSize: 22, fontWeight: 700, color: "#e5e7eb" }}>
                   Product Score
