@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface SafetyMeterProps {
   score: number;
@@ -6,136 +6,103 @@ interface SafetyMeterProps {
 }
 
 const SafetyMeter = ({ score, label }: SafetyMeterProps) => {
-  const [animatedScore, setAnimatedScore] = useState(0);
+  const [current, setCurrent] = useState(0);
+  const animRef = useRef<number>();
 
   useEffect(() => {
-    const timer = setTimeout(() => setAnimatedScore(score), 200);
-    return () => clearTimeout(timer);
+    const duration = 900;
+    const frameRate = 16;
+    const steps = duration / frameRate;
+    const increment = score / steps;
+    let val = 0;
+
+    const interval = setInterval(() => {
+      val += increment;
+      if (val >= score) {
+        val = score;
+        clearInterval(interval);
+      }
+      setCurrent(val);
+    }, frameRate);
+
+    return () => clearInterval(interval);
   }, [score]);
 
+  const displayValue = Math.floor(current);
+  const arcLength = 377;
+  const offset = arcLength - (current / 100) * arcLength;
+  const rotation = (current / 100) * 180 - 90;
+
   const getColor = (s: number) => {
-    if (s <= 30) return { color: "hsl(var(--unsafe))", label: "unsafe" };
-    if (s <= 60) return { color: "hsl(var(--moderate))", label: "moderate" };
-    return { color: "hsl(var(--safe))", label: "safe" };
+    if (s <= 30) return "unsafe";
+    if (s <= 60) return "moderate";
+    return "safe";
   };
 
-  const { color, label: glowLabel } = getColor(animatedScore);
-
-  const strokeWidth = 22;
-  const diameter = 280;
-  const coordinateForCircle = diameter / 2;
-  const radius = (diameter - 2 * strokeWidth) / 2;
-  const circumference = Math.PI * radius;
-  const semiCirclePercentage = animatedScore * (circumference / 100);
-
-  // Arrow needle position
-  const needleAngle = 180 + (animatedScore / 100) * 180;
-  const needleRadians = (needleAngle * Math.PI) / 180;
-  const needleLength = radius - 10;
-  const needleX = coordinateForCircle + needleLength * Math.cos(needleRadians);
-  const needleY = coordinateForCircle + needleLength * Math.sin(needleRadians);
-
-  // Arrow head
-  const arrowSize = 10;
-  const arrowAngle1 = needleRadians + 0.3;
-  const arrowAngle2 = needleRadians - 0.3;
-  const arrowTipX = coordinateForCircle + (needleLength + 5) * Math.cos(needleRadians);
-  const arrowTipY = coordinateForCircle + (needleLength + 5) * Math.sin(needleRadians);
-  const arrowBase1X = coordinateForCircle + (needleLength - arrowSize) * Math.cos(arrowAngle1);
-  const arrowBase1Y = coordinateForCircle + (needleLength - arrowSize) * Math.sin(arrowAngle1);
-  const arrowBase2X = coordinateForCircle + (needleLength - arrowSize) * Math.cos(arrowAngle2);
-  const arrowBase2Y = coordinateForCircle + (needleLength - arrowSize) * Math.sin(arrowAngle2);
+  const glowLabel = getColor(displayValue);
 
   return (
     <div className={`flex flex-col items-center glow-${glowLabel} rounded-3xl p-4`}>
-      <div className="relative">
-        <svg
-          width={diameter}
-          height={diameter / 2 + 20}
-          viewBox={`0 0 ${diameter} ${diameter / 2 + 20}`}
-          className="w-full max-w-[280px]"
-        >
+      <div className="w-full max-w-[320px]">
+        <svg viewBox="0 0 300 200" className="w-full">
+          {/* Background arc */}
+          <path
+            d="M30 150 A120 120 0 0 1 270 150"
+            stroke="hsl(var(--muted))"
+            strokeWidth="20"
+            fill="none"
+          />
+
+          {/* Gradient */}
           <defs>
-            <linearGradient id="meterGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="hsl(var(--unsafe))" />
-              <stop offset="40%" stopColor="hsl(var(--moderate))" />
-              <stop offset="100%" stopColor="hsl(var(--safe))" />
+            <linearGradient id="gaugeGrad">
+              <stop offset="0%" stopColor="hsl(var(--safe))" />
+              <stop offset="50%" stopColor="hsl(var(--moderate))" />
+              <stop offset="100%" stopColor="hsl(var(--unsafe))" />
             </linearGradient>
           </defs>
 
-          {/* Background track */}
-          <circle
-            cx={coordinateForCircle}
-            cy={coordinateForCircle}
-            r={radius}
-            fill="none"
-            stroke="hsl(var(--muted))"
-            strokeWidth={8}
-            strokeDasharray={circumference}
-            style={{ strokeDashoffset: circumference }}
-          />
-
-          {/* Active arc */}
-          <circle
-            cx={coordinateForCircle}
-            cy={coordinateForCircle}
-            r={radius}
-            fill="none"
-            stroke="url(#meterGradient)"
-            strokeWidth={strokeWidth}
+          {/* Progress arc */}
+          <path
+            d="M30 150 A120 120 0 0 1 270 150"
+            stroke="url(#gaugeGrad)"
+            strokeWidth="20"
             strokeLinecap="round"
-            strokeDasharray={circumference}
-            style={{
-              strokeDashoffset: semiCirclePercentage,
-              transition: "stroke-dashoffset 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
-              transform: "rotateY(180deg)",
-              transformOrigin: "center",
-            }}
+            fill="none"
+            strokeDasharray={arcLength}
+            strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 0.05s linear" }}
           />
 
-          {/* Needle line */}
+          {/* Needle */}
           <line
-            x1={coordinateForCircle}
-            y1={coordinateForCircle}
-            x2={needleX}
-            y2={needleY}
-            stroke={color}
-            strokeWidth="3"
-            strokeLinecap="round"
+            x1="150"
+            y1="150"
+            x2="150"
+            y2="60"
+            stroke={`hsl(var(--${glowLabel}))`}
+            strokeWidth="4"
             style={{
-              transition: "all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
-            }}
-          />
-
-          {/* Arrow head */}
-          <polygon
-            points={`${arrowTipX},${arrowTipY} ${arrowBase1X},${arrowBase1Y} ${arrowBase2X},${arrowBase2Y}`}
-            fill={color}
-            style={{
-              transition: "all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              transformOrigin: "150px 150px",
+              transform: `rotate(${rotation}deg)`,
+              transition: "transform 0.05s linear",
             }}
           />
 
           {/* Center dot */}
-          <circle cx={coordinateForCircle} cy={coordinateForCircle} r="8" fill={color} />
-          <circle cx={coordinateForCircle} cy={coordinateForCircle} r="4" fill="hsl(var(--background))" />
-        </svg>
-      </div>
+          <circle cx="150" cy="150" r="6" fill={`hsl(var(--${glowLabel}))`} />
 
-      {/* Score text below */}
-      <div className="text-center -mt-2">
-        <span
-          className="text-4xl font-bold font-display"
-          style={{ color }}
-        >
-          {animatedScore}
-        </span>
-        <span className="text-muted-foreground text-sm ml-1">/ 100</span>
+          {/* Score text */}
+          <text x="150" y="185" textAnchor="middle" className="font-display font-bold" style={{ fontSize: "28px", fill: `hsl(var(--${glowLabel}))` }}>
+            <tspan>{displayValue}</tspan>
+            <tspan style={{ fontSize: "14px", fill: "hsl(var(--muted-foreground))" }}> / 100</tspan>
+          </text>
+        </svg>
       </div>
 
       <p
         className="mt-1 text-center text-lg font-semibold font-display"
-        style={{ color }}
+        style={{ color: `hsl(var(--${glowLabel}))` }}
       >
         {label}
       </p>
