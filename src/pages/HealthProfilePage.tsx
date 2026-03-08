@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { BottomNav } from "@/components/BottomNav";
+import { SideMenu } from "@/components/SideMenu";
 import type { HealthProfile } from "@/types/healthProfile";
 import {
   ALLERGY_OPTIONS,
@@ -198,6 +199,7 @@ const HealthProfilePage = () => {
         </button>
       </div>
 
+      <SideMenu />
       <BottomNav />
     </div>
   );

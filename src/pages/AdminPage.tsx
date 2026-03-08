@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
+import { SideMenu } from "@/components/SideMenu";
 
 interface ScanEntry {
   id: string;
@@ -532,6 +533,7 @@ const AdminPage = () => {
         </div>
       )}
 
+      <SideMenu />
       <BottomNav />
     </div>
   );

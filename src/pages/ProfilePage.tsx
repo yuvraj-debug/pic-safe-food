@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useScanLimit } from "@/hooks/useScanLimit";
 import { LogOut, Mail, Crown, ScanLine } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { SideMenu } from "@/components/SideMenu";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -73,6 +74,7 @@ const ProfilePage = () => {
         </div>
       </div>
 
+      <SideMenu />
       <BottomNav />
     </div>
   );
