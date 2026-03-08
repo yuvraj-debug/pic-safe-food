@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, forwardRef } from "react";
 import html2canvas from "html2canvas";
 import { Share2, Download, Copy, X, Loader2, Image } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ interface Props {
   onClose: () => void;
 }
 
-const ShareModal = ({ analysis, displayScore, displayLevel, baseScore, onClose }: Props) => {
+const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, displayLevel, baseScore, onClose }, _ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
