@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, forwardRef } from "react";
 
 interface SafetyMeterProps {
   score: number;
   label: string;
 }
 
-const SafetyMeter = ({ score, label }: SafetyMeterProps) => {
+const SafetyMeter = forwardRef<HTMLDivElement, SafetyMeterProps>(({ score, label }, _ref) => {
   const [current, setCurrent] = useState(0);
   const rafRef = useRef<number>(0);
 
