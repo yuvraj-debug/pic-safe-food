@@ -80,7 +80,7 @@ const ScanPage = () => {
 
   const checkLimit = () => {
     if (!canScan) {
-      toast.error(`Daily scan limit reached (${limit}/${limit}). Upgrade your plan for more scans!`);
+      setShowUpgradeModal(true);
       return false;
     }
     return true;
