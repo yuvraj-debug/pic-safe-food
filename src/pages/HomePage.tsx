@@ -24,7 +24,7 @@ const getScoreBg = (score: number) => {
 const HomePage = () => {
   const navigate = useNavigate();
   const [history] = useState<ScanHistoryItem[]>(getHistory());
-  const { remaining, limit, planName, daysUntilReset } = useScanLimit();
+  const { remaining, limit, bonusScans, planName, daysUntilReset } = useScanLimit();
 
   const handleClearHistory = () => {
     clearHistory();
