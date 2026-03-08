@@ -33,7 +33,9 @@ const ResultsPage = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const { profile, loading: profileLoading, hasProfile } = useHealthProfile();
+  const { userPlan } = useAuth();
   const [personalized, setPersonalized] = useState<PersonalizedResult | null>(null);
+  const canPersonalize = userPlan !== "free";
 
   useEffect(() => {
     if (analysis && !profileLoading && hasProfile) {
