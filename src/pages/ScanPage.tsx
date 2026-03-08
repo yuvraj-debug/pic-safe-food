@@ -42,7 +42,7 @@ const ScanPage = () => {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [ingredientsInput, setIngredientsInput] = useState("");
   const [barcodeLoading, setBarcodeLoading] = useState(false);
-  const { canScan, remaining, limit, logScan, planName } = useScanLimit();
+  const { canScan, remaining, limit, bonusScans, logScan, planName } = useScanLimit();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const steps = MODE_STEPS[mode];
