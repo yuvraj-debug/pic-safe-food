@@ -8,7 +8,7 @@ import { SideMenu } from "@/components/SideMenu";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, userPlan, signOut } = useAuth();
-  const { scanCount, limit, remaining, daysUntilReset } = useScanLimit();
+  const { scanCount, limit, bonusScans, remaining, daysUntilReset } = useScanLimit();
 
   const handleLogout = async () => {
     await signOut();
@@ -57,7 +57,7 @@ const ProfilePage = () => {
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">Monthly Scans</p>
               <p className="text-sm text-foreground font-semibold">
-                {scanCount} / {limit}
+                {scanCount} / {limit}{bonusScans > 0 && <span className="text-primary"> +{bonusScans}</span>}
               </p>
             </div>
             <span className="text-xs text-muted-foreground shrink-0">
