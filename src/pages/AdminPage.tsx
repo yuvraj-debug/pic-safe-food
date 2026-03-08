@@ -43,6 +43,7 @@ const AdminPage = () => {
   const [userScans, setUserScans] = useState<Record<string, ScanEntry[]>>({});
   const [loadingScans, setLoadingScans] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ userId: string; email: string; currentPlan: string; newPlan: string } | null>(null);
+  const [intents, setIntents] = useState<PurchaseIntent[]>([]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/");
