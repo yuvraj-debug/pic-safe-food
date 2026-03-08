@@ -7,6 +7,7 @@ import type { ScanHistoryItem } from "@/types/analysis";
 import { useAuth } from "@/hooks/useAuth";
 import { useScanLimit } from "@/hooks/useScanLimit";
 import { BottomNav } from "@/components/BottomNav";
+import { SideMenu } from "@/components/SideMenu";
 
 const getScoreColor = (score: number) => {
   if (score <= 30) return "text-unsafe";
