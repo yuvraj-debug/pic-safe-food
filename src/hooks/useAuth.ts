@@ -27,8 +27,15 @@ export function useAuth() {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchUserData(session.user.id);
+        try {
+          await fetchUserData(session.user.id);
+        } catch (e) {
+          console.error("Failed to fetch user data:", e);
+        }
       }
+      if (mounted) setLoading(false);
+    }).catch((err) => {
+      console.error("Failed to get session:", err);
       if (mounted) setLoading(false);
     });
 
