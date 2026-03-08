@@ -45,7 +45,16 @@ const PricingPage = () => {
   const navigate = useNavigate();
   const { userPlan } = useAuth();
 
-  const handleBuyNow = (planName: string) => {
+  const handleBuyNow = async (planName: string, planKey: string) => {
+    // Track purchase intent
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("purchase_intents").insert({
+        user_id: user.id,
+        plan: planKey,
+      });
+    }
+
     const message = encodeURIComponent(
       `Hi, I would like to upgrade my plan to ${planName} on PicSafe Food. Please share the payment details.`
     );
