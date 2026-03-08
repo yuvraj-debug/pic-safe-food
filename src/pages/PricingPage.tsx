@@ -59,10 +59,25 @@ const PricingPage = () => {
       `Hi, I would like to upgrade my plan to *${planName}* (${price}/month) on PicSafe Food. Please share the payment details.\n\nEmail: ${user?.email || "N/A"}`
     );
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
-    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+    // Use link click to avoid iframe blocking
+    const a = document.createElement("a");
+    a.href = whatsappUrl;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     toast.success("Opening WhatsApp...", {
-      description: "Complete your payment via WhatsApp to activate your plan.",
+      description: "If WhatsApp didn't open, copy the link and open manually.",
+      action: {
+        label: "Copy Link",
+        onClick: () => {
+          navigator.clipboard.writeText(whatsappUrl);
+          toast.success("WhatsApp link copied!");
+        },
+      },
     });
   };
 
