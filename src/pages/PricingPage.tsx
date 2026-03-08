@@ -45,7 +45,7 @@ const PricingPage = () => {
   const navigate = useNavigate();
   const { userPlan } = useAuth();
 
-  const handleBuyNow = async (planName: string, planKey: string) => {
+  const handleBuyNow = async (planName: string, planKey: string, price: string) => {
     // Track purchase intent
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -56,16 +56,14 @@ const PricingPage = () => {
     }
 
     const message = encodeURIComponent(
-      `Hi, I would like to upgrade my plan to ${planName} on PicSafe Food. Please share the payment details.`
+      `Hi, I would like to upgrade my plan to *${planName}* (${price}/month) on PicSafe Food. Please share the payment details.\n\nEmail: ${user?.email || "N/A"}`
     );
-    const url = `https://wa.me/917206981457?text=${message}`;
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+    toast.success("Opening WhatsApp...", {
+      description: "Complete your payment via WhatsApp to activate your plan.",
+    });
   };
 
   return (
