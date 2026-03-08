@@ -38,18 +38,18 @@ const plans = [
 ];
 
 const ADMIN_EMAIL = "ys8800221@gmail.com";
+const WHATSAPP_NUMBER = "917206981457";
 
 const PricingPage = () => {
   const navigate = useNavigate();
   const { userPlan } = useAuth();
 
   const handleBuyNow = (planName: string) => {
-    const subject = encodeURIComponent(`Upgrade to ${planName} Plan - PicSafe Food`);
-    const body = encodeURIComponent(
-      `Hi,\n\nI would like to upgrade my plan to ${planName}.\n\nPlease let me know the payment details.\n\nThank you!`
+    const message = encodeURIComponent(
+      `Hi, I would like to upgrade my plan to ${planName} on PicSafe Food. Please share the payment details.`
     );
-    window.open(`mailto:${ADMIN_EMAIL}?subject=${subject}&body=${body}`, "_blank");
-    toast.success("Opening email client...");
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+    toast.success("Opening WhatsApp...");
   };
 
   return (
