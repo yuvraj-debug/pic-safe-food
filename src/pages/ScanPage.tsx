@@ -262,7 +262,7 @@ const ScanPage = () => {
         </div>
         <span className="text-xs text-muted-foreground bg-card px-3 py-1.5 rounded-full border border-border font-display">
           <Sparkles className="w-3 h-3 inline mr-1 text-primary" />
-         /{limit}{bonusScans > 0 && <span className="text-primary font-semibold"> +{bonusScans}</span>} scans} scans left
+         {remaining}/{limit}{bonusScans > 0 && <span className="text-primary font-semibold"> +{bonusScans}</span>} scans
         </span>
       </div>
 
