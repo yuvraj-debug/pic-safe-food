@@ -51,7 +51,7 @@ const HomePage = () => {
             <div className="flex items-center gap-2">
               <ScanLine className="w-4 h-4 text-primary" />
               <span className="text-muted-foreground">
-                <span className="text-foreground font-semibold">{remaining}</span> / {limit} scans left
+                <span className="text-foreground font-semibold">{remaining}</span> / {limit}{bonusScans > 0 && <span className="text-primary font-semibold"> +{bonusScans}</span>} scans left
               </span>
               <span className="text-xs text-muted-foreground capitalize">({planName})</span>
             </div>
