@@ -50,6 +50,19 @@ const ScanPage = () => {
       const thumbnail = base64.length > 50000 ? undefined : base64;
       saveToHistory(data, thumbnail);
 
+      // Save to database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("scan_results").insert({
+          user_id: user.id,
+          product_name: data.product_summary?.split(".")[0]?.slice(0, 60) || "Unknown Product",
+          safety_score: data.safety_score,
+          safety_level: data.safety_level,
+          analysis: data,
+          thumbnail,
+        });
+      }
+
       navigate("/results", { state: { analysis: data } });
     } catch (err: any) {
       console.error("Analysis failed:", err);

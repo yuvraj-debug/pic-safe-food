@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, ScanLine, CreditCard, User, Crown } from "lucide-react";
+import { Home, ScanLine, CreditCard, User, Crown, History } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const BottomNav = () => {
@@ -10,6 +10,7 @@ export const BottomNav = () => {
   const items = [
     { icon: Home, label: "Home", path: "/" },
     { icon: ScanLine, label: "Scan", path: "/scan" },
+    { icon: History, label: "History", path: "/history" },
     { icon: CreditCard, label: "Plans", path: "/pricing" },
     ...(isAdmin ? [{ icon: Crown, label: "Admin", path: "/admin" }] : []),
     { icon: User, label: "Profile", path: "/profile" },
