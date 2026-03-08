@@ -1,52 +1,76 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 const PLAN_LIMITS: Record<string, number> = {
-  free: 1,
-  basic: 10,
-  premium: 99,
+  free: 20,
+  basic: 100,
+  pro: 300,
+  lifetime: 500,
+  // legacy
+  premium: 500,
 };
 
 export function useScanLimit() {
   const { user, userPlan } = useAuth();
-  const [scansToday, setScansToday] = useState(0);
+  const [scanCount, setScanCount] = useState(0);
+  const [resetDate, setResetDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const limit = PLAN_LIMITS[userPlan] ?? 1;
-  const remaining = Math.max(0, limit - scansToday);
+  const limit = PLAN_LIMITS[userPlan] ?? 20;
+  const remaining = Math.max(0, limit - scanCount);
   const canScan = remaining > 0;
 
-  const fetchScansToday = async () => {
-    if (!user) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const fetchUsage = useCallback(async () => {
+    if (!user) { setLoading(false); return; }
 
-    const { count } = await supabase
-      .from("scan_logs")
-      .select("*", { count: "exact", head: true })
+    // Reset if needed (server-side via security definer)
+    await supabase.rpc("reset_scan_if_needed", { _user_id: user.id });
+
+    const { data } = await supabase
+      .from("scan_usage")
+      .select("scan_count, reset_date")
       .eq("user_id", user.id)
-      .gte("scanned_at", today.toISOString());
+      .single();
 
-    setScansToday(count ?? 0);
+    if (data) {
+      setScanCount(data.scan_count);
+      setResetDate(data.reset_date);
+    }
     setLoading(false);
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchScansToday();
-  }, [user, userPlan]);
+    fetchUsage();
+  }, [fetchUsage, userPlan]);
 
   const logScan = async () => {
     if (!user) return false;
-    const { error } = await supabase
-      .from("scan_logs")
-      .insert({ user_id: user.id });
-    if (!error) {
-      setScansToday((prev) => prev + 1);
+
+    // Increment via security definer function
+    const { data: newCount, error } = await supabase.rpc("increment_scan_count", { _user_id: user.id });
+
+    if (!error && newCount !== null) {
+      setScanCount(newCount);
+      // Also log to scan_logs for admin tracking
+      await supabase.from("scan_logs").insert({ user_id: user.id });
       return true;
     }
     return false;
   };
 
-  return { scansToday, limit, remaining, canScan, logScan, loading, planName: userPlan };
+  const daysUntilReset = resetDate
+    ? Math.max(0, Math.ceil((new Date(resetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 30;
+
+  return {
+    scanCount,
+    limit,
+    remaining,
+    canScan,
+    logScan,
+    loading,
+    planName: userPlan,
+    daysUntilReset,
+  };
 }

@@ -24,7 +24,7 @@ const getScoreBg = (score: number) => {
 const HomePage = () => {
   const navigate = useNavigate();
   const [history] = useState<ScanHistoryItem[]>(getHistory());
-  const { remaining, limit, planName } = useScanLimit();
+  const { remaining, limit, planName, daysUntilReset } = useScanLimit();
 
   const handleClearHistory = () => {
     clearHistory();
@@ -47,12 +47,17 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border text-sm">
-            <ScanLine className="w-4 h-4 text-primary" />
-            <span className="text-muted-foreground">
-              <span className="text-foreground font-semibold">{remaining}</span> / {limit} scans left
+          <div className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-2xl bg-card border border-border text-sm">
+            <div className="flex items-center gap-2">
+              <ScanLine className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">
+                <span className="text-foreground font-semibold">{remaining}</span> / {limit} scans left
+              </span>
+              <span className="text-xs text-muted-foreground capitalize">({planName})</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground">
+              Resets in {daysUntilReset} day{daysUntilReset !== 1 ? "s" : ""}
             </span>
-            <span className="text-xs text-muted-foreground capitalize">({planName})</span>
           </div>
 
           <button

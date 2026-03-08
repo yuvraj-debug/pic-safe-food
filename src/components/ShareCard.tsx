@@ -7,10 +7,12 @@ interface ShareCardProps {
   displayLevel: string;
   productName: string;
   baseScore?: number;
+  userPlan?: string;
 }
 
 const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
-  ({ analysis, displayScore, displayLevel, productName, baseScore }, ref) => {
+  ({ analysis, displayScore, displayLevel, productName, baseScore, userPlan = "free" }, ref) => {
+    const isFree = userPlan === "free";
     const isPersonalized = baseScore !== undefined && baseScore !== displayScore;
 
     const scoreColor =
@@ -339,7 +341,7 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer / Watermark */}
         <div
           style={{
             textAlign: "center",
@@ -348,28 +350,42 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
             zIndex: 1,
           }}
         >
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#22c55e", marginBottom: 10 }}>
-            Scan your food with AI
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                background: "linear-gradient(135deg, #22c55e, #16a34a)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 14,
-              }}
-            >
-              🍏
+          {isFree ? (
+            <>
+              <div style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "rgba(255,255,255,0.5)",
+                marginBottom: 6,
+                letterSpacing: "0.02em",
+              }}>
+                Scanned with PicSafe Food
+              </div>
+              <div style={{ fontSize: 16, color: "rgba(255,255,255,0.35)", fontWeight: 500 }}>
+                picsafefood.in
+              </div>
+            </>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                }}
+              >
+                🍏
+              </div>
+              <span style={{ fontSize: 16, color: "#4b5563", fontWeight: 500 }}>
+                PicSafe Food
+              </span>
             </div>
-            <span style={{ fontSize: 18, color: "#9ca3af", fontWeight: 500 }}>
-              picsafefood.in
-            </span>
-          </div>
+          )}
         </div>
       </div>
     );

@@ -10,10 +10,11 @@ interface Props {
   displayScore: number;
   displayLevel: string;
   baseScore?: number;
+  userPlan?: string;
   onClose: () => void;
 }
 
-const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, displayLevel, baseScore, onClose }, _ref) => {
+const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, displayLevel, baseScore, userPlan, onClose }, _ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -186,6 +187,7 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
           displayLevel={displayLevel}
           productName={productName}
           baseScore={baseScore}
+          userPlan={userPlan}
         />
       </div>
 

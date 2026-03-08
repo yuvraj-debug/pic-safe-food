@@ -11,6 +11,7 @@ import AnalysisCard from "@/components/AnalysisCard";
 import PersonalizedWarnings from "@/components/PersonalizedWarnings";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { computePersonalizedScore } from "@/lib/personalizedScoring";
+import { useAuth } from "@/hooks/useAuth";
 import type { AnalysisResult } from "@/types/analysis";
 import type { PersonalizedResult } from "@/lib/personalizedScoring";
 
@@ -32,13 +33,15 @@ const ResultsPage = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const { profile, loading: profileLoading, hasProfile } = useHealthProfile();
+  const { userPlan } = useAuth();
   const [personalized, setPersonalized] = useState<PersonalizedResult | null>(null);
+  const canPersonalize = userPlan !== "free";
 
   useEffect(() => {
-    if (analysis && !profileLoading && hasProfile) {
+    if (analysis && !profileLoading && hasProfile && canPersonalize) {
       setPersonalized(computePersonalizedScore(analysis, profile));
     }
-  }, [analysis, profile, profileLoading, hasProfile]);
+  }, [analysis, profile, profileLoading, hasProfile, canPersonalize]);
 
   if (!analysis) {
     return (
@@ -117,8 +120,8 @@ const ResultsPage = () => {
           </div>
         )}
 
-        {/* No health profile banner */}
-        {!profileLoading && !hasProfile && (
+        {/* No health profile / upgrade banner */}
+        {!profileLoading && !hasProfile && canPersonalize && (
           <div className="px-4 mb-4">
             <button
               onClick={() => navigate("/health-profile")}
@@ -127,6 +130,19 @@ const ResultsPage = () => {
               <Heart className="w-5 h-5 text-primary shrink-0" />
               <p className="text-sm text-foreground text-left">
                 Set up your <span className="font-semibold text-primary">Health Profile</span> for personalized safety scores
+              </p>
+            </button>
+          </div>
+        )}
+        {!canPersonalize && (
+          <div className="px-4 mb-4">
+            <button
+              onClick={() => navigate("/pricing")}
+              className="w-full rounded-2xl p-3 border border-primary/20 bg-primary/5 flex items-center gap-3 hover:bg-primary/10 transition-all"
+            >
+              <Heart className="w-5 h-5 text-primary shrink-0" />
+              <p className="text-sm text-foreground text-left">
+                Upgrade to <span className="font-semibold text-primary">Basic or above</span> for personalized health scoring
               </p>
             </button>
           </div>
@@ -295,6 +311,7 @@ const ResultsPage = () => {
             displayScore={displayScore}
             displayLevel={displayLevel}
             baseScore={personalized ? personalized.baseScore : undefined}
+            userPlan={userPlan}
             onClose={() => setShowShareModal(false)}
           />
         )}

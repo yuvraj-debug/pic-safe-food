@@ -220,6 +220,8 @@ const AdminPage = () => {
   const planColors: Record<string, string> = {
     free: "bg-muted text-muted-foreground",
     basic: "bg-accent/15 text-accent-foreground",
+    pro: "bg-primary/15 text-primary",
+    lifetime: "bg-primary/20 text-primary",
     premium: "bg-primary/15 text-primary",
   };
 
@@ -261,9 +263,11 @@ const AdminPage = () => {
             </div>
           </div>
           <div className="col-span-2 bg-card rounded-2xl border border-border p-3 flex items-center justify-around">
-            {(["free", "basic", "premium"] as const).map((plan) => (
+            {(["free", "basic", "pro", "lifetime"] as const).map((plan) => (
               <div key={plan} className="text-center">
-                <p className="text-lg font-bold font-display text-foreground">{stats[plan]}</p>
+                <p className="text-lg font-bold font-display text-foreground">
+                  {users.filter((u) => u.plan === plan).length}
+                </p>
                 <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md ${planColors[plan]}`}>
                   {plan}
                 </span>
@@ -355,7 +359,7 @@ const AdminPage = () => {
                   <div>
                     <p className="text-xs text-muted-foreground mb-2 font-medium">Change Plan</p>
                     <div className="flex items-center gap-2">
-                      {["free", "basic", "premium"].map((plan) => (
+                      {["free", "basic", "pro", "lifetime"].map((plan) => (
                         <button
                           key={plan}
                           onClick={() => setConfirmDialog({ userId: user.id, email: user.email, currentPlan: user.plan, newPlan: plan })}

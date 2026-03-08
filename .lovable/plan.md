@@ -1,144 +1,98 @@
 
 
-## Subscription Pricing System Overhaul
+## Plan: FoodScan AI - Major Feature Additions
 
-This is a significant restructure of the monetization system. Here's the implementation plan:
-
----
-
-### 1. Database Migration — New Plan Enum & Scan Tracking
-
-**Current state:** `app_plan` enum has `free | basic | premium`. Scan tracking uses `scan_logs` table (one row per scan, daily reset logic in code).
-
-**Changes needed:**
-
-- Add `pro` and `lifetime` values to `app_plan` enum
-- Create new `scan_usage` table to track monthly usage per user:
-  ```
-  scan_usage (
-    id uuid PK,
-    user_id uuid NOT NULL,
-    scan_count integer DEFAULT 0,
-    reset_date timestamptz NOT NULL,
-    created_at timestamptz DEFAULT now()
-  )
-  ```
-- Create a DB function `reset_scan_count_if_needed(user_id)` that checks if `reset_date` has passed and resets `scan_count` to 0, advancing `reset_date` by 30 days
-- RLS: users can read/update own row, admin can read all
-- Auto-create `scan_usage` row in `handle_new_user()` trigger with `reset_date = now() + 30 days`
-
-**Plan limits (monthly):**
-| Plan | Scans/month |
-|------|------------|
-| free | 20 |
-| basic | 100 |
-| pro | 300 |
-| premium (lifetime) | 500 |
-
-Note: Rename internal `premium` → keep as `lifetime` concept. The new enum values: `free`, `basic`, `pro`, `lifetime`.
+This is a large set of changes. Here's the plan broken into phases:
 
 ---
 
-### 2. Update `useScanLimit` Hook
+### 1. Replace Safety Meter with Semi-Circle Progress + Arrow Needle
 
-Replace the current daily-count-from-scan_logs approach with the new `scan_usage` table:
-
-- Fetch `scan_usage` row for user
-- Call reset function if `reset_date` has passed (client-side check, then update via DB)
-- Compare `scan_count` against plan limit
-- `logScan()` increments `scan_count` in `scan_usage`
-- Change from daily to monthly terminology throughout
+Replace the current `SafetyMeter` component with the semi-circle gauge from the provided code. The needle/arrow will point based on the score (e.g., 50/100 = middle). Will keep the existing color scheme (red/orange/green zones) and add a gradient fill with animated arrow transition.
 
 ---
 
-### 3. Update `useAuth` Hook
+### 2. Authentication System with Email OTP
 
-- Fetch plan from `user_plans` table (already done)
-- Map new plan values (`pro`, `lifetime`)
+**Database tables needed:**
+- `profiles` table (id, email, created_at, daily_scans_used, last_scan_date)
+- `user_roles` table (id, user_id, role enum: admin/user)
+- `user_plans` table (id, user_id, plan enum: free/basic/premium, created_at)
 
----
+**Auth flow:**
+- Sign up page: user enters email, receives OTP via email
+- OTP verification page: user enters the 6-digit code
+- On successful verification, profile + free plan auto-created via trigger
+- Login page with same OTP flow
+- Protected routes: redirect unauthenticated users to login
+- Configure auth to use OTP (magic link with OTP) — no password needed
 
-### 4. Redesign Pricing Page
-
-Replace current 3-plan layout with 4 plans:
-
-- **Free** — ₹0, 20 scans/month, basic analysis, watermark on shares
-- **Basic** — ₹99/month, 100 scans/month, personalized scoring, no watermark — marked "MOST POPULAR"
-- **Pro** — ₹249/month, 300 scans/month, family mode, product comparison, alt recommendations
-- **Lifetime** — ₹999 one-time, 500 scans/month, all Pro features forever
-
-Buy Now still goes to WhatsApp with pre-filled message.
-
----
-
-### 5. Upgrade Modal Component
-
-Create `src/components/UpgradeModal.tsx`:
-
-- Triggered when scan limit is reached (from ScanPage)
-- Shows "You've reached your monthly scan limit"
-- Displays the 4 plan cards with prices
-- Highlights Basic as "Most Popular"
-- Buy Now buttons open WhatsApp (same logic as PricingPage)
-- Close button to dismiss
+**Note:** Will enable email auto-confirm since we're using OTP flow (user proves email ownership by entering the code).
 
 ---
 
-### 6. Watermark Logic on ShareCard
+### 3. Pricing / Plans Page
 
-- Pass `userPlan` as a prop to `ShareCard`
-- If plan is `free`, render watermark text at bottom: "Scanned with PicSafe Food — picsafefood.in"
-- If paid plan → no watermark (remove/hide the footer branding or replace with minimal logo)
+Display three plans:
+- **Free** — 1 scan/day, ₹0
+- **Basic** — 10 scans/day, ₹99
+- **Premium** — 99 scans/day, ₹499
 
-The current footer already shows "picsafefood.in" — for free users, make it more prominent as a watermark overlay. For paid users, hide it or show minimal branding.
-
----
-
-### 7. Feature Gating in UI
-
-- **Personalized health scoring**: Only show for `basic`, `pro`, `lifetime`. Free users see a prompt to upgrade.
-- **Share card watermark**: Controlled by plan (Feature 5 above).
-- Home page: Show "X / Y scans this month" instead of daily.
+Static pricing page (no payment integration unless requested later). Admin can manually change plans.
 
 ---
 
-### 8. Monthly Reset Logic
+### 4. Scan Limit Enforcement
 
-Two approaches (using simpler client-triggered approach):
-
-- When `useScanLimit` fetches `scan_usage`, if `now() > reset_date`:
-  - Update `scan_count = 0` and `reset_date = reset_date + 30 days`
-- This is lazy reset — happens on next app usage after 30 days
-
----
-
-### 9. Files to Create/Modify
-
-**New files:**
-- `src/components/UpgradeModal.tsx` — scan limit reached modal
-
-**Modified files:**
-- `src/hooks/useScanLimit.ts` — monthly tracking via `scan_usage` table
-- `src/hooks/useAuth.ts` — support new plan types
-- `src/pages/PricingPage.tsx` — 4 plans with new pricing
-- `src/pages/ScanPage.tsx` — show UpgradeModal when limit reached
-- `src/pages/HomePage.tsx` — monthly scan display
-- `src/components/ShareCard.tsx` — watermark for free users
-- `src/components/ShareModal.tsx` — pass userPlan to ShareCard
-- `src/pages/ResultsPage.tsx` — pass userPlan for share card, gate personalized scoring
-
-**Database migration:**
-- Alter `app_plan` enum to add `pro`, `lifetime`  
-- Create `scan_usage` table with RLS
-- Update `handle_new_user()` trigger to create `scan_usage` row
+- Before each scan, check user's plan and daily usage
+- Track scans in a `scan_logs` table (user_id, scanned_at)
+- Count today's scans vs plan limit
+- Show remaining scans on home page
+- Block scan with friendly message when limit reached
 
 ---
 
-### 10. Payment-Ready Architecture
+### 5. Admin Panel
 
-No actual payment integration now, but the structure supports it:
-- `user_plans` table is the single source of truth
-- `purchase_intents` table logs upgrade requests
-- Admin can manually change plans
-- Future: Razorpay/Stripe webhook updates `user_plans.plan` directly
+- Route: `/admin` — only accessible by `ys8800221@gmail.com`
+- Seed admin role for this email via migration
+- Dashboard showing: all registered users, their plan, scan count
+- Ability to change any user's plan
+- RLS policies: admin can read all profiles/plans, users can only read own
+- Use `has_role` security definer function for RLS
+
+---
+
+### 6. Mobile-Responsive UI Polish
+
+- Ensure all pages work well on small screens (already mostly mobile-first)
+- Fix any overflow or spacing issues
+- Improve card layouts, button sizes, typography for mobile
+- Add bottom navigation bar for mobile (Home, Scan, Pricing, Profile)
+
+---
+
+### Technical Details
+
+**Database migrations (in order):**
+1. Create `app_role` enum, `app_plan` enum
+2. Create `profiles`, `user_roles`, `user_plans`, `scan_logs` tables
+3. Create `has_role` security definer function
+4. RLS policies on all tables
+5. Trigger to auto-create profile + free plan on signup
+6. Insert admin role for `ys8800221@gmail.com` (will run after they sign up, or use a trigger)
+
+**New pages/components:**
+- `src/pages/AuthPage.tsx` — email input + OTP verification
+- `src/pages/PricingPage.tsx` — plan display
+- `src/pages/AdminPage.tsx` — user management
+- `src/components/BottomNav.tsx` — mobile navigation
+- `src/hooks/useAuth.ts` — auth state management
+- `src/hooks/useScanLimit.ts` — scan limit checking
+
+**Route updates in App.tsx:**
+- `/auth` — public
+- `/pricing` — public
+- `/admin` — protected (admin only)
+- All other routes — protected (authenticated)
 

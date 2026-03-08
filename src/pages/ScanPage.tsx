@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { saveToHistory } from "@/lib/scanHistory";
 import { toast } from "sonner";
 import { useScanLimit } from "@/hooks/useScanLimit";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 type InputMode = "photo" | "barcode" | "ingredients";
 
@@ -41,7 +42,8 @@ const ScanPage = () => {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [ingredientsInput, setIngredientsInput] = useState("");
   const [barcodeLoading, setBarcodeLoading] = useState(false);
-  const { canScan, remaining, limit, logScan } = useScanLimit();
+  const { canScan, remaining, limit, logScan, planName } = useScanLimit();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const steps = MODE_STEPS[mode];
 
@@ -79,7 +81,7 @@ const ScanPage = () => {
 
   const checkLimit = () => {
     if (!canScan) {
-      toast.error(`Daily scan limit reached (${limit}/${limit}). Upgrade your plan for more scans!`);
+      setShowUpgradeModal(true);
       return false;
     }
     return true;
@@ -286,7 +288,7 @@ const ScanPage = () => {
             </div>
             <h3 className="font-display font-semibold text-xl text-foreground">Scan Limit Reached</h3>
             <p className="text-muted-foreground text-sm max-w-xs">
-              You've used all {limit} scans for today. Upgrade your plan for more daily scans.
+              You've used all {limit} scans this month. Upgrade your plan for more scans.
             </p>
             <button
               onClick={() => navigate("/pricing")}
@@ -507,6 +509,8 @@ const ScanPage = () => {
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
       </div>
+
+      {showUpgradeModal && <UpgradeModal onClose={() => setShowUpgradeModal(false)} />}
     </div>
   );
 };
