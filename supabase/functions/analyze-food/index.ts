@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,33 @@ const ANALYSIS_SYSTEM_PROMPT = `You are a food ingredient safety expert. Analyze
   "recommendation": "<simple advice: safe to eat regularly / eat occasionally / avoid frequently>",
   "overall_verdict": "<one line verdict like: This snack is okay sometimes but not daily>"
 }`;
+
+// Try to get a key from DB first, fall back to env
+async function getApiKey(keyName: string): Promise<string> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data } = await admin
+      .from("app_settings")
+      .select("value")
+      .eq("key", keyName)
+      .maybeSingle();
+
+    if (data?.value) {
+      console.log(`Using ${keyName} from database settings`);
+      return data.value;
+    }
+  } catch (e) {
+    console.log(`DB lookup for ${keyName} failed, using env:`, e);
+  }
+
+  const envVal = Deno.env.get(keyName);
+  if (!envVal) throw new Error(`${keyName} is not configured`);
+  console.log(`Using ${keyName} from environment`);
+  return envVal;
+}
 
 async function tryOpenFoodFacts(barcode: string): Promise<string | null> {
   try {
@@ -52,17 +80,14 @@ async function tryOpenFoodFacts(barcode: string): Promise<string | null> {
 
 function extractBarcode(text: string): string | null {
   const cleaned = text.replace(/\s+/g, "").trim();
-  // EAN-13, EAN-8, UPC-A patterns
   const match = cleaned.match(/\b(\d{8}|\d{12,13})\b/);
   return match ? match[1] : null;
 }
 
 function isInsufficientText(text: string): boolean {
   const cleaned = text.replace(/\s+/g, " ").trim();
-  // If it's just a barcode number or very short text
   if (/^\d{8,13}$/.test(cleaned)) return true;
   if (cleaned.length < 30) return true;
-  // Check if text has "no text found" or similar
   if (cleaned.toLowerCase().includes("no text found")) return true;
   if (cleaned.toLowerCase().includes("unable to extract")) return true;
   return false;
@@ -84,22 +109,13 @@ serve(async (req) => {
       });
     }
 
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) {
-      throw new Error("GROQ_API_KEY is not configured");
-    }
-
     let extractedText: string;
 
     if (ingredients_text) {
       extractedText = ingredients_text;
       console.log("Using provided ingredients text directly");
     } else {
-      // Image input — run OCR
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        throw new Error("LOVABLE_API_KEY is not configured");
-      }
+      const LOVABLE_API_KEY = await getApiKey("LOVABLE_API_KEY");
 
       const ocrResponse = await fetch(
         "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -169,13 +185,13 @@ serve(async (req) => {
           extractedText = `Barcode: ${barcode}. This is a food product with this barcode. Based on your knowledge of common food products with this barcode, provide your best analysis. If you can identify the product, analyze its typical ingredients. If you cannot identify it, still provide a reasonable safety assessment based on what this barcode typically corresponds to.`;
         }
       } else {
-        // No barcode found, but text is too short — ask AI to do its best
-        console.log("Insufficient text extracted, no barcode found. Asking AI to analyze what's available.");
+        console.log("Insufficient text extracted, no barcode found.");
         extractedText = `The following limited text was extracted from a food product image: "${extractedText}". Based on this limited information and your knowledge of food products, provide your best analysis. Identify the product if possible and analyze its typical ingredients. Do NOT say you lack information — give your best assessment.`;
       }
     }
 
-    // Analyze ingredients using Groq
+    const GROQ_API_KEY = await getApiKey("GROQ_API_KEY");
+
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
