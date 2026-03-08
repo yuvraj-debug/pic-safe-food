@@ -396,7 +396,7 @@ const ScanPage = () => {
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <Camera className="w-8 h-8 text-primary" />
                   </div>
-                  <h3 className="font-display font-semibold text-xl text-foreground">Scan Ingredients</h3>
+                  <h3 className="font-display font-semibold text-xl text-foreground">Scan Ingredients / Barcode</h3>
                   <p className="text-muted-foreground text-sm mt-2 max-w-xs mx-auto">
                     Take a photo or upload an image of the ingredient list
                   </p>
