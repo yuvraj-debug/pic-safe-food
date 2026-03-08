@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft, Users, Crown, Loader2, Search, RefreshCw,
   Shield, BarChart3, Mail, Calendar, ChevronDown, ChevronUp, Clock, ShoppingCart,
+  Key, Save, Eye, EyeOff, Check, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
@@ -44,6 +45,10 @@ const AdminPage = () => {
   const [loadingScans, setLoadingScans] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ userId: string; email: string; currentPlan: string; newPlan: string } | null>(null);
   const [intents, setIntents] = useState<PurchaseIntent[]>([]);
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [apiKeyVisible, setApiKeyVisible] = useState<Record<string, boolean>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, "saved" | "error" | null>>({});
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate("/");
@@ -53,8 +58,60 @@ const AdminPage = () => {
     if (isAdmin) {
       fetchUsers();
       fetchIntents();
+      fetchApiKeys();
     }
   }, [isAdmin]);
+
+  const API_KEY_NAMES = ["GROQ_API_KEY", "LOVABLE_API_KEY"];
+
+  const fetchApiKeys = async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", API_KEY_NAMES);
+    const keys: Record<string, string> = {};
+    data?.forEach((row: any) => { keys[row.key] = row.value; });
+    setApiKeys(keys);
+  };
+
+  const saveApiKey = async (keyName: string) => {
+    const value = apiKeys[keyName]?.trim();
+    if (!value) {
+      toast.error("API key cannot be empty");
+      return;
+    }
+    setSavingKey(keyName);
+    setApiKeyStatus((p) => ({ ...p, [keyName]: null }));
+
+    // Upsert: try update first, then insert
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("id")
+      .eq("key", keyName)
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      ({ error } = await supabase
+        .from("app_settings")
+        .update({ value, updated_at: new Date().toISOString() } as any)
+        .eq("key", keyName));
+    } else {
+      ({ error } = await supabase
+        .from("app_settings")
+        .insert({ key: keyName, value } as any));
+    }
+
+    if (error) {
+      toast.error("Failed to save: " + error.message);
+      setApiKeyStatus((p) => ({ ...p, [keyName]: "error" }));
+    } else {
+      toast.success(`${keyName} saved successfully`);
+      setApiKeyStatus((p) => ({ ...p, [keyName]: "saved" }));
+      setTimeout(() => setApiKeyStatus((p) => ({ ...p, [keyName]: null })), 3000);
+    }
+    setSavingKey(null);
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -387,6 +444,62 @@ const AdminPage = () => {
         </div>
       )}
 
+      {/* API Key Management */}
+      <div className="px-4 mt-6 space-y-3">
+        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider flex items-center gap-1.5">
+          <Key className="w-3.5 h-3.5" />
+          API Key Management
+        </p>
+        <div className="space-y-3">
+          {API_KEY_NAMES.map((keyName) => (
+            <div key={keyName} className="bg-gradient-card rounded-2xl border border-border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-display font-semibold text-foreground">{keyName}</p>
+                {apiKeyStatus[keyName] === "saved" && (
+                  <span className="flex items-center gap-1 text-xs text-safe">
+                    <Check className="w-3 h-3" /> Saved
+                  </span>
+                )}
+                {apiKeyStatus[keyName] === "error" && (
+                  <span className="flex items-center gap-1 text-xs text-unsafe">
+                    <AlertCircle className="w-3 h-3" /> Error
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={apiKeyVisible[keyName] ? "text" : "password"}
+                    value={apiKeys[keyName] || ""}
+                    onChange={(e) => setApiKeys((p) => ({ ...p, [keyName]: e.target.value }))}
+                    placeholder={`Enter ${keyName}...`}
+                    className="w-full bg-card border border-border rounded-xl py-2.5 px-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+                  />
+                  <button
+                    onClick={() => setApiKeyVisible((p) => ({ ...p, [keyName]: !p[keyName] }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {apiKeyVisible[keyName] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <button
+                  onClick={() => saveApiKey(keyName)}
+                  disabled={savingKey === keyName}
+                  className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {savingKey === keyName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {keyName === "GROQ_API_KEY" 
+                  ? "Used for food ingredient analysis. Get from groq.com" 
+                  : "Used for OCR image scanning. Managed by Lovable Cloud."}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {confirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
