@@ -81,6 +81,17 @@ const AdminPage = () => {
     setLoading(false);
   };
 
+  const fetchIntents = async () => {
+    const [{ data: intentData }, { data: profiles }] = await Promise.all([
+      supabase.from("purchase_intents").select("*").order("created_at", { ascending: false }).limit(50),
+      supabase.from("profiles").select("id, email"),
+    ]);
+    const emailMap: Record<string, string> = {};
+    profiles?.forEach((p: any) => { emailMap[p.id] = p.email; });
+    setIntents((intentData ?? []).map((i: any) => ({ ...i, email: emailMap[i.user_id] || "Unknown" })));
+  };
+  };
+
   const fetchUserScans = async (userId: string) => {
     if (userScans[userId]) return;
     setLoadingScans(userId);
