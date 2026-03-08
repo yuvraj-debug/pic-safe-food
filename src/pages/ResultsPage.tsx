@@ -5,6 +5,7 @@ import {
   ShieldAlert, Utensils, Eye, EyeOff, Info, ScanLine, Share2, Heart,
 } from "lucide-react";
 import { toast } from "sonner";
+import ShareModal from "@/components/ShareModal";
 import SafetyMeter from "@/components/SafetyMeter";
 import AnalysisCard from "@/components/AnalysisCard";
 import PersonalizedWarnings from "@/components/PersonalizedWarnings";
