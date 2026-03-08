@@ -84,6 +84,7 @@ const SafetyMeter = forwardRef<HTMLDivElement, SafetyMeterProps>(({ score, label
       </p>
     </div>
   );
-};
+});
 
+SafetyMeter.displayName = "SafetyMeter";
 export default SafetyMeter;
