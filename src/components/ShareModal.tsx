@@ -10,6 +10,7 @@ interface Props {
   displayScore: number;
   displayLevel: string;
   baseScore?: number;
+  userPlan?: string;
   onClose: () => void;
 }
 
