@@ -340,6 +340,38 @@ const AdminPage = () => {
         )}
       </div>
 
+      {/* Confirmation Dialog */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display font-bold text-foreground text-lg">Confirm Plan Change</h3>
+            <p className="text-sm text-muted-foreground">
+              Change <span className="text-foreground font-medium">{confirmDialog.email}</span> from{" "}
+              <span className="font-semibold text-foreground capitalize">{confirmDialog.currentPlan}</span> to{" "}
+              <span className="font-semibold text-primary capitalize">{confirmDialog.newPlan}</span>?
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const { userId, newPlan } = confirmDialog;
+                  setConfirmDialog(null);
+                  await changePlan(userId, newPlan);
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:brightness-110 transition-all"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );
