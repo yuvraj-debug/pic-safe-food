@@ -11,6 +11,7 @@ import AnalysisCard from "@/components/AnalysisCard";
 import PersonalizedWarnings from "@/components/PersonalizedWarnings";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { computePersonalizedScore } from "@/lib/personalizedScoring";
+import { useAuth } from "@/hooks/useAuth";
 import type { AnalysisResult } from "@/types/analysis";
 import type { PersonalizedResult } from "@/lib/personalizedScoring";
 
