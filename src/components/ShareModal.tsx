@@ -100,11 +100,15 @@ const ShareModal = ({ analysis, displayScore, displayLevel, baseScore, onClose }
   };
 
   const handleCopyText = () => {
+    const isPersonalized = baseScore !== undefined && baseScore !== displayScore;
     const concerns = analysis.harmful_ingredients.slice(0, 3);
     const benefits = analysis.beneficial_ingredients.slice(0, 2);
     const text = [
       `🔍 ${productName}`,
-      `📊 Score: ${displayScore}/100 (${displayLevel})`,
+      "",
+      isPersonalized
+        ? `📊 Base Score: ${baseScore}/100\n❤️ Your Personalized Score: ${displayScore}/100 (${displayLevel})\n   Adjusted based on your health profile`
+        : `📊 Score: ${displayScore}/100 (${displayLevel})`,
       "",
       concerns.length > 0
         ? `⚠️ Concerns:\n${concerns.map((c) => `  • ${c}`).join("\n")}`
