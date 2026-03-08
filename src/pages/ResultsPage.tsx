@@ -267,6 +267,13 @@ const ResultsPage = () => {
         {/* Action Buttons */}
         <div className="px-4 mt-6 space-y-3">
           <button
+            onClick={() => setShowShareModal(true)}
+            className="w-full flex items-center justify-center gap-2 bg-card text-foreground font-display font-semibold py-4 rounded-2xl border border-primary/30 hover:border-primary/60 hover:bg-primary/5 active:scale-[0.98] transition-all"
+          >
+            <Share2 className="w-5 h-5 text-primary" />
+            Share Result Card
+          </button>
+          <button
             onClick={() => navigate("/scan")}
             className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl glow-primary hover:brightness-110 active:scale-[0.98] transition-all"
           >
@@ -280,6 +287,16 @@ const ResultsPage = () => {
             Back to Home
           </button>
         </div>
+
+        {/* Share Modal */}
+        {showShareModal && (
+          <ShareModal
+            analysis={analysis}
+            displayScore={displayScore}
+            displayLevel={displayLevel}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
       </div>
     </div>
   );
