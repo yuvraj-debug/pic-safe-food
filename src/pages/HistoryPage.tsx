@@ -43,7 +43,7 @@ const HistoryPage = () => {
     if (error) {
       toast.error("Failed to load history");
     } else {
-      setScans((data as ScanRecord[]) || []);
+      setScans((data as unknown as ScanRecord[]) || []);
     }
     setLoading(false);
   };
