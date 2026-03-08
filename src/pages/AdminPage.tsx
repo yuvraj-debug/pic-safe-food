@@ -22,6 +22,14 @@ interface UserRow {
   scan_count: number;
 }
 
+interface PurchaseIntent {
+  id: string;
+  user_id: string;
+  plan: string;
+  created_at: string;
+  email?: string;
+}
+
 const AdminPage = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: authLoading } = useAuth();
