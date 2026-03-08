@@ -116,6 +116,86 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          referred_id: string
+          referred_rewarded: boolean
+          referrer_id: string
+          referrer_rewarded: boolean
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referred_id: string
+          referred_rewarded?: boolean
+          referrer_id: string
+          referrer_rewarded?: boolean
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referred_id?: string
+          referred_rewarded?: boolean
+          referrer_id?: string
+          referrer_rewarded?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      referral_profiles: {
+        Row: {
+          created_at: string
+          highest_milestone_reached: number
+          id: string
+          monthly_referral_reset_date: string
+          monthly_referral_scans: number
+          referral_code: string
+          referral_count: number
+          referral_rewards_scans: number
+          referred_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          highest_milestone_reached?: number
+          id?: string
+          monthly_referral_reset_date?: string
+          monthly_referral_scans?: number
+          referral_code: string
+          referral_count?: number
+          referral_rewards_scans?: number
+          referred_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          highest_milestone_reached?: number
+          id?: string
+          monthly_referral_reset_date?: string
+          monthly_referral_scans?: number
+          referral_code?: string
+          referral_count?: number
+          referral_rewards_scans?: number
+          referred_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "referral_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       scan_logs: {
         Row: {
           id: string
@@ -235,6 +315,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_referral: {
+        Args: { _referred_user_id: string }
+        Returns: undefined
+      }
+      generate_referral_code: { Args: never; Returns: string }
       get_user_plan: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_plan"]

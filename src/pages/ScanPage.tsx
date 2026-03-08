@@ -73,6 +73,17 @@ const ScanPage = () => {
         analysis: data,
         thumbnail,
       });
+
+      // Check if this is the user's first scan and complete referral
+      const { count } = await supabase
+        .from("scan_results")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      if (count === 1) {
+        // First scan — trigger referral completion
+        await supabase.rpc("complete_referral", { _referred_user_id: user.id });
+      }
     }
 
     await new Promise(r => setTimeout(r, 600));
