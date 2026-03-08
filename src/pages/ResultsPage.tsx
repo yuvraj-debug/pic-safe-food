@@ -12,7 +12,9 @@ import {
   EyeOff,
   Info,
   ScanLine,
+  Share2,
 } from "lucide-react";
+import { toast } from "sonner";
 import SafetyMeter from "@/components/SafetyMeter";
 import AnalysisCard from "@/components/AnalysisCard";
 import type { AnalysisResult } from "@/types/analysis";
@@ -59,6 +61,22 @@ const ResultsPage = () => {
           </button>
           <h2 className="font-display font-semibold text-lg text-foreground">Results</h2>
         </div>
+        <button
+          onClick={async () => {
+            const shareText = `🔍 ${analysis.overall_verdict || "Food Safety Check"}\n\n📊 Safety Score: ${analysis.safety_score}/100 (${analysis.safety_level})\n\n${analysis.simple_summary || analysis.product_summary}\n\n${analysis.harmful_ingredients.length > 0 ? `⚠️ ${analysis.harmful_ingredients.length} concern(s) found` : "✅ No major concerns"}\n\nScanned with PicSafe Food`;
+            if (navigator.share) {
+              try {
+                await navigator.share({ title: "PicSafe Food Scan Result", text: shareText });
+              } catch {}
+            } else {
+              await navigator.clipboard.writeText(shareText);
+              toast.success("Results copied to clipboard!");
+            }
+          }}
+          className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-muted"
+        >
+          <Share2 className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Safety Meter */}
