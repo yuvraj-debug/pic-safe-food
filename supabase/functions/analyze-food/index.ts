@@ -181,12 +181,22 @@ serve(async (req) => {
           console.log("Found product on Open Food Facts:", offData.substring(0, 200));
           extractedText = offData;
         } else {
-          console.log("Product not found on Open Food Facts, using barcode for AI lookup");
-          extractedText = `Barcode: ${barcode}. This is a food product with this barcode. Based on your knowledge of common food products with this barcode, provide your best analysis. If you can identify the product, analyze its typical ingredients. If you cannot identify it, still provide a reasonable safety assessment based on what this barcode typically corresponds to.`;
+          console.log("Barcode not found on Open Food Facts, returning unable to fetch");
+          return new Response(JSON.stringify({
+            unable_to_fetch: true,
+            message: "Unable to fetch product details. The barcode was not found in our database. Please try scanning the ingredients list instead."
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
       } else {
-        console.log("Insufficient text extracted, no barcode found.");
-        extractedText = `The following limited text was extracted from a food product image: "${extractedText}". Based on this limited information and your knowledge of food products, provide your best analysis. Identify the product if possible and analyze its typical ingredients. Do NOT say you lack information — give your best assessment.`;
+        console.log("Insufficient text extracted, no barcode found, returning unable to fetch");
+        return new Response(JSON.stringify({
+          unable_to_fetch: true,
+          message: "Unable to fetch product details. Not enough information could be extracted from the image. Please try taking a clearer photo of the ingredients list."
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
 
