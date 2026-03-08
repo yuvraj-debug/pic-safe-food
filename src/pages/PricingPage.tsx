@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Crown, Zap, Star, Mail } from "lucide-react";
+import { ArrowLeft, Check, Crown, Zap, Star, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/BottomNav";
 import { toast } from "sonner";
@@ -38,18 +38,18 @@ const plans = [
 ];
 
 const ADMIN_EMAIL = "ys8800221@gmail.com";
+const WHATSAPP_NUMBER = "917206981457";
 
 const PricingPage = () => {
   const navigate = useNavigate();
   const { userPlan } = useAuth();
 
   const handleBuyNow = (planName: string) => {
-    const subject = encodeURIComponent(`Upgrade to ${planName} Plan - PicSafe Food`);
-    const body = encodeURIComponent(
-      `Hi,\n\nI would like to upgrade my plan to ${planName}.\n\nPlease let me know the payment details.\n\nThank you!`
+    const message = encodeURIComponent(
+      `Hi, I would like to upgrade my plan to ${planName} on PicSafe Food. Please share the payment details.`
     );
-    window.open(`mailto:${ADMIN_EMAIL}?subject=${subject}&body=${body}`, "_blank");
-    toast.success("Opening email client...");
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+    toast.success("Opening WhatsApp...");
   };
 
   return (
@@ -127,7 +127,7 @@ const PricingPage = () => {
                           : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
                       }`}
                     >
-                      <Mail className="w-4 h-4" />
+                      <MessageCircle className="w-4 h-4" />
                       Buy Now
                     </button>
                   )}
@@ -138,7 +138,7 @@ const PricingPage = () => {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Contact us at {ADMIN_EMAIL} to upgrade your plan
+          Contact us on WhatsApp or at {ADMIN_EMAIL} to upgrade
         </p>
       </div>
 
