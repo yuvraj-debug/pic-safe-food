@@ -120,8 +120,8 @@ const ResultsPage = () => {
           </div>
         )}
 
-        {/* No health profile banner */}
-        {!profileLoading && !hasProfile && (
+        {/* No health profile / upgrade banner */}
+        {!profileLoading && !hasProfile && canPersonalize && (
           <div className="px-4 mb-4">
             <button
               onClick={() => navigate("/health-profile")}
@@ -130,6 +130,19 @@ const ResultsPage = () => {
               <Heart className="w-5 h-5 text-primary shrink-0" />
               <p className="text-sm text-foreground text-left">
                 Set up your <span className="font-semibold text-primary">Health Profile</span> for personalized safety scores
+              </p>
+            </button>
+          </div>
+        )}
+        {!canPersonalize && (
+          <div className="px-4 mb-4">
+            <button
+              onClick={() => navigate("/pricing")}
+              className="w-full rounded-2xl p-3 border border-primary/20 bg-primary/5 flex items-center gap-3 hover:bg-primary/10 transition-all"
+            >
+              <Heart className="w-5 h-5 text-primary shrink-0" />
+              <p className="text-sm text-foreground text-left">
+                Upgrade to <span className="font-semibold text-primary">Basic or above</span> for personalized health scoring
               </p>
             </button>
           </div>
