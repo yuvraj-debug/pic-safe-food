@@ -138,7 +138,7 @@ const PricingPage = () => {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Contact us at {ADMIN_EMAIL} to upgrade your plan
+          Contact us on WhatsApp or at {ADMIN_EMAIL} to upgrade
         </p>
       </div>
 
