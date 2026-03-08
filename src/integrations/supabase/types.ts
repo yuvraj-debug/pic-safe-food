@@ -167,6 +167,30 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_usage: {
+        Row: {
+          created_at: string
+          id: string
+          reset_date: string
+          scan_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reset_date?: string
+          scan_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reset_date?: string
+          scan_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_plans: {
         Row: {
           created_at: string
@@ -222,9 +246,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_scan_count: { Args: { _user_id: string }; Returns: number }
+      reset_scan_if_needed: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
-      app_plan: "free" | "basic" | "premium"
+      app_plan: "free" | "basic" | "premium" | "pro" | "lifetime"
       app_role: "admin" | "user"
     }
     CompositeTypes: {
@@ -353,7 +379,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_plan: ["free", "basic", "premium"],
+      app_plan: ["free", "basic", "premium", "pro", "lifetime"],
       app_role: ["admin", "user"],
     },
   },
