@@ -47,21 +47,15 @@ const SafetyMeter = forwardRef<HTMLDivElement, SafetyMeterProps>(({ score, label
             strokeWidth="20"
             fill="none"
           />
-          <defs>
-            <linearGradient id="gaugeGrad">
-              <stop offset="0%" stopColor="hsl(var(--safe))" />
-              <stop offset="50%" stopColor="hsl(var(--moderate))" />
-              <stop offset="100%" stopColor="hsl(var(--unsafe))" />
-            </linearGradient>
-          </defs>
           <path
             d="M30 150 A120 120 0 0 1 270 150"
-            stroke="url(#gaugeGrad)"
+            stroke={`hsl(var(--${glowLabel}))`}
             strokeWidth="20"
             strokeLinecap="round"
             fill="none"
             strokeDasharray={arcLength}
             strokeDashoffset={offset}
+            style={{ filter: `drop-shadow(0 0 8px hsl(var(--${glowLabel}) / 0.4))`, transition: "stroke 0.3s ease" }}
           />
           <line
             x1="150" y1="150" x2="150" y2="60"
