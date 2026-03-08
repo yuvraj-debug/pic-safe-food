@@ -48,8 +48,14 @@ const PricingPage = () => {
     const message = encodeURIComponent(
       `Hi, I would like to upgrade my plan to ${planName} on PicSafe Food. Please share the payment details.`
     );
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
-    toast.success("Opening WhatsApp...");
+    const url = `https://wa.me/917206981457?text=${message}`;
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
