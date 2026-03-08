@@ -50,6 +50,39 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_results: {
+        Row: {
+          analysis: Json
+          created_at: string
+          id: string
+          product_name: string
+          safety_level: string
+          safety_score: number
+          thumbnail: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis: Json
+          created_at?: string
+          id?: string
+          product_name: string
+          safety_level: string
+          safety_score: number
+          thumbnail?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          created_at?: string
+          id?: string
+          product_name?: string
+          safety_level?: string
+          safety_score?: number
+          thumbnail?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_plans: {
         Row: {
           created_at: string
