@@ -58,8 +58,60 @@ const AdminPage = () => {
     if (isAdmin) {
       fetchUsers();
       fetchIntents();
+      fetchApiKeys();
     }
   }, [isAdmin]);
+
+  const API_KEY_NAMES = ["GROQ_API_KEY", "LOVABLE_API_KEY"];
+
+  const fetchApiKeys = async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", API_KEY_NAMES);
+    const keys: Record<string, string> = {};
+    data?.forEach((row: any) => { keys[row.key] = row.value; });
+    setApiKeys(keys);
+  };
+
+  const saveApiKey = async (keyName: string) => {
+    const value = apiKeys[keyName]?.trim();
+    if (!value) {
+      toast.error("API key cannot be empty");
+      return;
+    }
+    setSavingKey(keyName);
+    setApiKeyStatus((p) => ({ ...p, [keyName]: null }));
+
+    // Upsert: try update first, then insert
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("id")
+      .eq("key", keyName)
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      ({ error } = await supabase
+        .from("app_settings")
+        .update({ value, updated_at: new Date().toISOString() } as any)
+        .eq("key", keyName));
+    } else {
+      ({ error } = await supabase
+        .from("app_settings")
+        .insert({ key: keyName, value } as any));
+    }
+
+    if (error) {
+      toast.error("Failed to save: " + error.message);
+      setApiKeyStatus((p) => ({ ...p, [keyName]: "error" }));
+    } else {
+      toast.success(`${keyName} saved successfully`);
+      setApiKeyStatus((p) => ({ ...p, [keyName]: "saved" }));
+      setTimeout(() => setApiKeyStatus((p) => ({ ...p, [keyName]: null })), 3000);
+    }
+    setSavingKey(null);
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
