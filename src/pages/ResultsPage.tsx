@@ -12,7 +12,9 @@ import {
   EyeOff,
   Info,
   ScanLine,
+  Share2,
 } from "lucide-react";
+import { toast } from "sonner";
 import SafetyMeter from "@/components/SafetyMeter";
 import AnalysisCard from "@/components/AnalysisCard";
 import type { AnalysisResult } from "@/types/analysis";
