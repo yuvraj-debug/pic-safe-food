@@ -13,6 +13,11 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
   ({ analysis, displayScore, displayLevel, productName, baseScore }, ref) => {
     const isPersonalized = baseScore !== undefined && baseScore !== displayScore;
 
+    const baseScoreColor =
+      baseScore !== undefined
+        ? baseScore <= 30 ? "#e5484d" : baseScore <= 60 ? "#f59e0b" : "#34d399"
+        : scoreColor;
+
     const scoreColor =
       displayScore <= 30
         ? "#e5484d"
