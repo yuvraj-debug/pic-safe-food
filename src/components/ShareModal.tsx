@@ -9,10 +9,11 @@ interface Props {
   analysis: AnalysisResult;
   displayScore: number;
   displayLevel: string;
+  baseScore?: number;
   onClose: () => void;
 }
 
-const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) => {
+const ShareModal = ({ analysis, displayScore, displayLevel, baseScore, onClose }: Props) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -99,11 +100,15 @@ const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) =>
   };
 
   const handleCopyText = () => {
+    const isPersonalized = baseScore !== undefined && baseScore !== displayScore;
     const concerns = analysis.harmful_ingredients.slice(0, 3);
     const benefits = analysis.beneficial_ingredients.slice(0, 2);
     const text = [
       `🔍 ${productName}`,
-      `📊 Score: ${displayScore}/100 (${displayLevel})`,
+      "",
+      isPersonalized
+        ? `📊 Base Score: ${baseScore}/100\n❤️ Your Personalized Score: ${displayScore}/100 (${displayLevel})\n   Adjusted based on your health profile`
+        : `📊 Score: ${displayScore}/100 (${displayLevel})`,
       "",
       concerns.length > 0
         ? `⚠️ Concerns:\n${concerns.map((c) => `  • ${c}`).join("\n")}`
@@ -145,6 +150,7 @@ const ShareModal = ({ analysis, displayScore, displayLevel, onClose }: Props) =>
           displayScore={displayScore}
           displayLevel={displayLevel}
           productName={productName}
+          baseScore={baseScore}
         />
       </div>
 
