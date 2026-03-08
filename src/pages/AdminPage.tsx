@@ -143,7 +143,7 @@ const AdminPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 max-w-4xl mx-auto">
       {/* Header */}
       <div className="bg-gradient-hero border-b border-border">
         <div className="flex items-center gap-3 p-4">
