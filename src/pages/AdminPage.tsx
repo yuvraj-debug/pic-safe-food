@@ -278,7 +278,7 @@ const AdminPage = () => {
                       {["free", "basic", "premium"].map((plan) => (
                         <button
                           key={plan}
-                          onClick={() => changePlan(user.id, plan)}
+                          onClick={() => setConfirmDialog({ userId: user.id, email: user.email, currentPlan: user.plan, newPlan: plan })}
                           disabled={updatingUser === user.id || user.plan === plan}
                           className={`flex-1 text-xs font-display font-semibold py-2.5 rounded-xl transition-all disabled:opacity-50 ${
                             user.plan === plan
