@@ -13,6 +13,7 @@ import PricingPage from "./pages/PricingPage";
 import HistoryPage from "./pages/HistoryPage";
 
 import ProfilePage from "./pages/ProfilePage";
+import HealthProfilePage from "./pages/HealthProfilePage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
