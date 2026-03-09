@@ -6,6 +6,48 @@
 
 @layer base {
   :root {
+    --background: 0 0% 98%;
+    --foreground: 220 15% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+
+    --primary: 152 68% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 220 15% 25%;
+
+    --muted: 220 14% 95%;
+    --muted-foreground: 215 12% 45%;
+
+    --accent: 152 68% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 32 95% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --safe: 152 68% 40%;
+    --moderate: 32 95% 50%;
+    --unsafe: 0 72% 50%;
+
+    --border: 220 14% 88%;
+    --input: 220 14% 88%;
+    --ring: 152 68% 40%;
+
+    --radius: 1rem;
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  .dark {
     --background: 220 20% 7%;
     --foreground: 210 20% 95%;
 
@@ -40,11 +82,6 @@
     --border: 220 14% 18%;
     --input: 220 14% 18%;
     --ring: 152 68% 50%;
-
-    --radius: 1rem;
-
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
   }
 }
 

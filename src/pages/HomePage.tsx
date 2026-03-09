@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useScanLimit } from "@/hooks/useScanLimit";
 import { BottomNav } from "@/components/BottomNav";
 import { SideMenu } from "@/components/SideMenu";
+import { ScanAnalytics } from "@/components/ScanAnalytics";
 
 const getScoreColor = (score: number) => {
   if (score <= 30) return "text-unsafe";

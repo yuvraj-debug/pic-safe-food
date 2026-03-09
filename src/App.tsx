@@ -11,6 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import PricingPage from "./pages/PricingPage";
 import HistoryPage from "./pages/HistoryPage";
+import ComparePage from "./pages/ComparePage";
 
 import ProfilePage from "./pages/ProfilePage";
 import HealthProfilePage from "./pages/HealthProfilePage";

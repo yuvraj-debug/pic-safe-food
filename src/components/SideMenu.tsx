@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, Heart, CreditCard, Crown, Gift } from "lucide-react";
+import { Menu, Heart, CreditCard, Crown, Gift, GitCompareArrows } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Sheet,
