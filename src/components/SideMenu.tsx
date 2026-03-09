@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, Heart, CreditCard, Crown, Gift } from "lucide-react";
+import { Menu, Heart, CreditCard, Crown, Gift, GitCompareArrows } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Sheet,
@@ -18,6 +19,7 @@ export const SideMenu = () => {
 
   const items = [
     { icon: Heart, label: "Health Profile", path: "/health-profile" },
+    { icon: GitCompareArrows, label: "Compare Products", path: "/compare" },
     { icon: Gift, label: "Earn Free Scans", path: "/earn-scans" },
     { icon: CreditCard, label: "Plans & Pricing", path: "/pricing" },
     ...(isAdmin ? [{ icon: Crown, label: "Admin Panel", path: "/admin" }] : []),
@@ -57,6 +59,8 @@ export const SideMenu = () => {
               </button>
             );
           })}
+          <div className="border-t border-border my-2" />
+          <ThemeToggle />
         </nav>
       </SheetContent>
     </Sheet>

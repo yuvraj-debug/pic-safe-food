@@ -1,89 +1,98 @@
 
 
-# Plan: Scan Analytics Dashboard + Product Comparison + Dark/Light Mode
+## Plan: FoodScan AI - Major Feature Additions
 
-Three features to implement across new pages, components, and theme infrastructure.
-
----
-
-## 1. Scan Analytics Dashboard (Home Page)
-
-**What**: A collapsible analytics section on the home page showing scan trends and insights from the user's `scan_results` data.
-
-**Components**:
-- New `src/components/ScanAnalytics.tsx` component with:
-  - **Average Safety Score** (big number + trend indicator)
-  - **Weekly scan count bar chart** (recharts `BarChart`, last 4 weeks)
-  - **Safety distribution pie chart** (safe/moderate/unsafe breakdown using `PieChart`)
-  - **Top harmful ingredients** (aggregated from `analysis.harmful_ingredients` across all scans)
-- Fetches from `scan_results` table (already has `safety_score`, `analysis` JSONB, `created_at`)
-- Uses `recharts` (already installed) with chart config from existing `chart.tsx` primitives
-- Shown on HomePage below hero, above recent scans, with a "Your Insights" header
-- Only renders when user has 2+ scans
-
-**Data query**: Single Supabase query to `scan_results` ordered by `created_at` desc, limit 100. All aggregation done client-side.
+This is a large set of changes. Here's the plan broken into phases:
 
 ---
 
-## 2. Product Comparison Page
+### 1. Replace Safety Meter with Semi-Circle Progress + Arrow Needle
 
-**What**: New `/compare` page where users pick two products from their scan history and see a side-by-side comparison.
-
-**Components & Files**:
-- New `src/pages/ComparePage.tsx`:
-  - Two product selector dropdowns (populated from `scan_results`)
-  - Side-by-side layout showing for each product:
-    - Safety score with color coding
-    - Harmful ingredients list (highlighted differences)
-    - Beneficial ingredients list
-    - Allergens
-    - Health warnings
-    - Recommendation
-  - A "Winner" badge on the product with higher safety score
-  - "Pick Healthier" summary at the top
-- Add route `/compare` to `App.tsx` (protected)
-- Add "Compare" option to `BottomNav` (replace or add as 5th item) or add to `SideMenu`
-- Add to SideMenu with `GitCompare` icon
+Replace the current `SafetyMeter` component with the semi-circle gauge from the provided code. The needle/arrow will point based on the score (e.g., 50/100 = middle). Will keep the existing color scheme (red/orange/green zones) and add a gradient fill with animated arrow transition.
 
 ---
 
-## 3. Dark/Light Mode Toggle
+### 2. Authentication System with Email OTP
 
-**What**: Theme toggle using `next-themes` (already installed) to switch between dark and light modes.
+**Database tables needed:**
+- `profiles` table (id, email, created_at, daily_scans_used, last_scan_date)
+- `user_roles` table (id, user_id, role enum: admin/user)
+- `user_plans` table (id, user_id, plan enum: free/basic/premium, created_at)
 
-**Changes**:
+**Auth flow:**
+- Sign up page: user enters email, receives OTP via email
+- OTP verification page: user enters the 6-digit code
+- On successful verification, profile + free plan auto-created via trigger
+- Login page with same OTP flow
+- Protected routes: redirect unauthenticated users to login
+- Configure auth to use OTP (magic link with OTP) — no password needed
 
-- **`src/index.css`**: Add light theme CSS variables under a `.light` or `:root` selector (the current vars are dark-only). Add corresponding light values for all CSS custom properties.
-
-- **`src/main.tsx`**: Wrap app with `ThemeProvider` from `next-themes` with `attribute="class"` and `defaultTheme="dark"`.
-
-- **`index.html`**: Ensure `<html>` doesn't have a hardcoded `class="dark"`.
-
-- **New `src/components/ThemeToggle.tsx`**: Small toggle button using `useTheme()` from `next-themes`, with Sun/Moon icons. Placed in the SideMenu.
-
-- **`src/components/SideMenu.tsx`**: Add ThemeToggle at the bottom of the menu.
+**Note:** Will enable email auto-confirm since we're using OTP flow (user proves email ownership by entering the code).
 
 ---
 
-## Technical Details
+### 3. Pricing / Plans Page
 
-- **No database changes needed** -- all three features use existing tables
-- **recharts** charts use the existing `ChartContainer` / `ChartConfig` pattern from `src/components/ui/chart.tsx`
-- Light theme colors will be carefully chosen to complement the existing green primary palette
-- The comparison page uses client-side data from `scan_results` already fetched via Supabase
-- Theme preference persisted via `next-themes` localStorage
+Display three plans:
+- **Free** — 1 scan/day, ₹0
+- **Basic** — 10 scans/day, ₹99
+- **Premium** — 99 scans/day, ₹499
 
-## Files to Create/Modify
+Static pricing page (no payment integration unless requested later). Admin can manually change plans.
 
-| Action | File |
-|--------|------|
-| Create | `src/components/ScanAnalytics.tsx` |
-| Create | `src/pages/ComparePage.tsx` |
-| Create | `src/components/ThemeToggle.tsx` |
-| Modify | `src/pages/HomePage.tsx` (add analytics section) |
-| Modify | `src/App.tsx` (add compare route, ThemeProvider) |
-| Modify | `src/components/SideMenu.tsx` (add compare + theme toggle) |
-| Modify | `src/index.css` (add light theme variables) |
-| Modify | `index.html` (remove hardcoded dark if any) |
-| Modify | `src/main.tsx` (ThemeProvider wrapper) |
+---
+
+### 4. Scan Limit Enforcement
+
+- Before each scan, check user's plan and daily usage
+- Track scans in a `scan_logs` table (user_id, scanned_at)
+- Count today's scans vs plan limit
+- Show remaining scans on home page
+- Block scan with friendly message when limit reached
+
+---
+
+### 5. Admin Panel
+
+- Route: `/admin` — only accessible by `ys8800221@gmail.com`
+- Seed admin role for this email via migration
+- Dashboard showing: all registered users, their plan, scan count
+- Ability to change any user's plan
+- RLS policies: admin can read all profiles/plans, users can only read own
+- Use `has_role` security definer function for RLS
+
+---
+
+### 6. Mobile-Responsive UI Polish
+
+- Ensure all pages work well on small screens (already mostly mobile-first)
+- Fix any overflow or spacing issues
+- Improve card layouts, button sizes, typography for mobile
+- Add bottom navigation bar for mobile (Home, Scan, Pricing, Profile)
+
+---
+
+### Technical Details
+
+**Database migrations (in order):**
+1. Create `app_role` enum, `app_plan` enum
+2. Create `profiles`, `user_roles`, `user_plans`, `scan_logs` tables
+3. Create `has_role` security definer function
+4. RLS policies on all tables
+5. Trigger to auto-create profile + free plan on signup
+6. Insert admin role for `ys8800221@gmail.com` (will run after they sign up, or use a trigger)
+
+**New pages/components:**
+- `src/pages/AuthPage.tsx` — email input + OTP verification
+- `src/pages/PricingPage.tsx` — plan display
+- `src/pages/AdminPage.tsx` — user management
+- `src/components/BottomNav.tsx` — mobile navigation
+- `src/hooks/useAuth.ts` — auth state management
+- `src/hooks/useScanLimit.ts` — scan limit checking
+
+**Route updates in App.tsx:**
+- `/auth` — public
+- `/pricing` — public
+- `/admin` — protected (admin only)
+- All other routes — protected (authenticated)
 

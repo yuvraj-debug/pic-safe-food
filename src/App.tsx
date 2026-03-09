@@ -11,6 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
 import PricingPage from "./pages/PricingPage";
 import HistoryPage from "./pages/HistoryPage";
+import ComparePage from "./pages/ComparePage";
 
 import ProfilePage from "./pages/ProfilePage";
 import HealthProfilePage from "./pages/HealthProfilePage";
@@ -60,6 +61,7 @@ const AppRoutes = () => {
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/health-profile" element={<ProtectedRoute><HealthProfilePage /></ProtectedRoute>} />
       <Route path="/earn-scans" element={<ProtectedRoute><EarnScansPage /></ProtectedRoute>} />
+      <Route path="/compare" element={<ProtectedRoute><ComparePage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
