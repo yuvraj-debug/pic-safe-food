@@ -19,6 +19,7 @@ export const SideMenu = () => {
 
   const items = [
     { icon: Heart, label: "Health Profile", path: "/health-profile" },
+    { icon: GitCompareArrows, label: "Compare Products", path: "/compare" },
     { icon: Gift, label: "Earn Free Scans", path: "/earn-scans" },
     { icon: CreditCard, label: "Plans & Pricing", path: "/pricing" },
     ...(isAdmin ? [{ icon: Crown, label: "Admin Panel", path: "/admin" }] : []),
