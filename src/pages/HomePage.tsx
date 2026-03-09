@@ -84,6 +84,9 @@ const HomePage = () => {
         </div>
       </div>
 
+      {/* Analytics Section */}
+      <ScanAnalytics />
+
       {/* History Section */}
       {history.length > 0 && (
         <div className="flex-1 px-4 pb-4 max-w-2xl mx-auto w-full">

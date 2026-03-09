@@ -59,6 +59,8 @@ export const SideMenu = () => {
               </button>
             );
           })}
+          <div className="border-t border-border my-2" />
+          <ThemeToggle />
         </nav>
       </SheetContent>
     </Sheet>
