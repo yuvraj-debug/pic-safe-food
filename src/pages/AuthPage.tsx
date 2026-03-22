@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft, Gift } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
