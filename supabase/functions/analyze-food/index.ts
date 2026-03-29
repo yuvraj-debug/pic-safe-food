@@ -200,65 +200,133 @@ serve(async (req) => {
       }
     }
 
-    const GROQ_API_KEY = await getApiKey("GROQ_API_KEY");
-
-    const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: ANALYSIS_SYSTEM_PROMPT + `\n\nIMPORTANT: Always provide a meaningful analysis. If you can identify the product (by name, brand, or barcode), use your knowledge of its typical ingredients. Never return a generic "lack of information" response — always score the product to the best of your ability.`
-          },
-          {
-            role: "user",
-            content: `Analyze this food product and return ONLY valid JSON:\n\n${extractedText}`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1024,
-        top_p: 1,
-        stream: false,
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text();
-      console.error("Groq error:", groqResponse.status, errText);
-      if (groqResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`Groq analysis failed: ${groqResponse.status}`);
-    }
-
-    const groqData = await groqResponse.json();
-    const content = groqData.choices?.[0]?.message?.content;
-    console.log("Groq response:", content);
-
-    if (!content) {
-      throw new Error("No analysis returned from Groq");
-    }
-
-    let result;
     try {
-      const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      result = JSON.parse(jsonStr);
-    } catch (parseErr) {
-      console.error("JSON parse error:", parseErr, "Content:", content);
-      throw new Error("Failed to parse analysis result");
-    }
+      const STEPFUN_API_KEY = await getApiKey("STEPFUN_API_KEY");
+      let result;
+      let usedFallback = false;
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      // Try StepFun first (primary)
+      try {
+        console.log("Attempting StepFun API...");
+        const stepfunResponse = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${STEPFUN_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "stepfun-ai/step-3.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: ANALYSIS_SYSTEM_PROMPT + `\n\nIMPORTANT: Always provide a meaningful analysis. If you can identify the product (by name, brand, or barcode), use your knowledge of its typical ingredients. Never return a generic "lack of information" response — always score the product to the best of your ability.`
+              },
+              {
+                role: "user",
+                content: `Analyze this food product and return ONLY valid JSON:\n\n${extractedText}`
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 1024,
+            top_p: 0.9,
+            stream: false,
+          }),
+        });
+
+        if (!stepfunResponse.ok) {
+          const errText = await stepfunResponse.text();
+          console.error("StepFun error:", stepfunResponse.status, errText);
+          if (stepfunResponse.status === 429) {
+            return new Response(JSON.stringify({ error: "Rate limited. Please try again." }), {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          throw new Error(`StepFun analysis failed: ${stepfunResponse.status}`);
+        }
+
+        const stepfunData = await stepfunResponse.json();
+        const content = stepfunData.choices?.[0]?.message?.content;
+        console.log("StepFun response:", content);
+
+        if (!content) {
+          throw new Error("No analysis returned from StepFun");
+        }
+
+        const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        result = JSON.parse(jsonStr);
+      } catch (err) {
+        console.warn("StepFun failed, falling back to Groq:", err);
+
+        // Fallback to Groq
+        const GROQ_API_KEY = await getApiKey("GROQ_API_KEY");
+        const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              {
+                role: "system",
+                content: ANALYSIS_SYSTEM_PROMPT + `\n\nIMPORTANT: Always provide a meaningful analysis. If you can identify the product (by name, brand, or barcode), use your knowledge of its typical ingredients. Never return a generic "lack of information" response — always score the product to the best of your ability.`
+              },
+              {
+                role: "user",
+                content: `Analyze this food product and return ONLY valid JSON:\n\n${extractedText}`
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 1024,
+            top_p: 1,
+            stream: false,
+          }),
+        });
+
+        if (!groqResponse.ok) {
+          const errText = await groqResponse.text();
+          console.error("Groq error:", groqResponse.status, errText);
+          if (groqResponse.status === 429) {
+            return new Response(JSON.stringify({ error: "Rate limited. Please try again." }), {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          throw new Error(`Groq analysis failed: ${groqResponse.status}`);
+        }
+
+        const groqData = await groqResponse.json();
+        const content = groqData.choices?.[0]?.message?.content;
+        console.log("Groq fallback response:", content);
+
+        if (!content) {
+          throw new Error("No analysis returned from Groq fallback");
+        }
+
+        const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        result = JSON.parse(jsonStr);
+        usedFallback = true;
+      }
+
+      if (usedFallback) {
+        result._meta = { ...result._meta, fallback_used: true };
+      }
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      console.error("analyze-food error:", e);
+      return new Response(
+        JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
   } catch (e) {
     console.error("analyze-food error:", e);
     return new Response(

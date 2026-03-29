@@ -63,7 +63,7 @@ const AdminPage = () => {
     }
   }, [isAdmin]);
 
-  const API_KEY_NAMES = ["GROQ_API_KEY", "LOVABLE_API_KEY"];
+  const API_KEY_NAMES = ["STEPFUN_API_KEY", "GROQ_API_KEY", "LOVABLE_API_KEY"];
 
   const fetchApiKeys = async () => {
     const { data } = await supabase
@@ -497,8 +497,10 @@ const AdminPage = () => {
                 </button>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {keyName === "GROQ_API_KEY" 
-                  ? "Used for food ingredient analysis. Get from groq.com" 
+                {keyName === "STEPFUN_API_KEY"
+                  ? "Primary AI model for food analysis. Get from NVIDIA AI Foundation Models."
+                  : keyName === "GROQ_API_KEY"
+                  ? "Fallback AI model for food analysis. Get from groq.com"
                   : "Used for OCR image scanning. Managed by Lovable Cloud."}
               </p>
             </div>
