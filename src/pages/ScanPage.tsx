@@ -482,30 +482,56 @@ const ScanPage = () => {
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <Barcode className="w-8 h-8 text-primary" />
                   </div>
-                  <h3 className="font-display font-semibold text-xl text-foreground">Enter Barcode</h3>
+                  <h3 className="font-display font-semibold text-xl text-foreground">Scan Barcode</h3>
                   <p className="text-muted-foreground text-sm mt-2 max-w-xs mx-auto">
-                    Type the barcode number found on the product packaging
+                    Point your camera at a barcode or enter it manually
                   </p>
                 </div>
-                <div className="w-full space-y-3">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="e.g. 8901063034136"
-                    value={barcodeInput}
-                    onChange={(e) => setBarcodeInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && processBarcode(barcodeInput)}
-                    className="w-full bg-card border border-border rounded-2xl px-4 py-4 text-foreground placeholder:text-muted-foreground text-center text-lg font-display tracking-widest focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
-                  />
-                  <button
-                    onClick={() => processBarcode(barcodeInput)}
-                    disabled={!barcodeInput.trim() || barcodeLoading}
-                    className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.97] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Search className="w-5 h-5" />
-                    Look Up Product
-                  </button>
-                </div>
+
+                {/* Camera Scanner */}
+                {scannerActive ? (
+                  <div className="w-full space-y-3">
+                    <BarcodeScanner onDetected={handleBarcodeDetected} active={scannerActive} />
+                    <button
+                      onClick={() => setScannerActive(false)}
+                      className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+                    >
+                      Enter manually instead
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full space-y-3">
+                    <button
+                      onClick={() => setScannerActive(true)}
+                      className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.97] transition-all duration-200"
+                    >
+                      <Camera className="w-5 h-5" />
+                      Open Camera Scanner
+                    </button>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-xs text-muted-foreground">or enter manually</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 8901063034136"
+                      value={barcodeInput}
+                      onChange={(e) => setBarcodeInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && processBarcode(barcodeInput)}
+                      className="w-full bg-card border border-border rounded-2xl px-4 py-4 text-foreground placeholder:text-muted-foreground text-center text-lg font-display tracking-widest focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
+                    />
+                    <button
+                      onClick={() => processBarcode(barcodeInput)}
+                      disabled={!barcodeInput.trim() || barcodeLoading}
+                      className="w-full flex items-center justify-center gap-2 bg-secondary text-secondary-foreground font-display font-semibold py-4 rounded-2xl hover:bg-secondary/80 active:scale-[0.97] transition-all duration-200 border border-border disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Search className="w-5 h-5" />
+                      Look Up Product
+                    </button>
+                  </div>
+                )}
                 <p className="text-muted-foreground/60 text-xs text-center">
                   Powered by Open Food Facts database
                 </p>
