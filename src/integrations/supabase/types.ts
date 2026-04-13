@@ -38,6 +38,60 @@ export type Database = {
         }
         Relationships: []
       }
+      discover_products: {
+        Row: {
+          added_by: string | null
+          analysis: Json
+          barcode: string | null
+          brand: string
+          category: string
+          created_at: string
+          emoji: string | null
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          product_name: string
+          safety_level: string
+          safety_score: number
+          thumbnail: string | null
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          analysis?: Json
+          barcode?: string | null
+          brand?: string
+          category?: string
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          product_name: string
+          safety_level?: string
+          safety_score?: number
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          analysis?: Json
+          barcode?: string | null
+          brand?: string
+          category?: string
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          product_name?: string
+          safety_level?: string
+          safety_score?: number
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       health_profiles: {
         Row: {
           allergies: string[]
