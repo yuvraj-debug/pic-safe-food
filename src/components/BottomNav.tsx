@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, ScanLine, User, History } from "lucide-react";
+import { Home, ScanLine, User, Compass } from "lucide-react";
 
 export const BottomNav = () => {
   const navigate = useNavigate();
@@ -8,7 +8,7 @@ export const BottomNav = () => {
   const items = [
     { icon: Home, label: "Home", path: "/" },
     { icon: ScanLine, label: "Scan", path: "/scan" },
-    { icon: History, label: "History", path: "/history" },
+    { icon: Compass, label: "Discover", path: "/discover" },
     { icon: User, label: "Profile", path: "/profile" },
   ];
 

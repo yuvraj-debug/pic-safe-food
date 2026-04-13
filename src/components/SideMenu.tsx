@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, Heart, CreditCard, Crown, Gift, GitCompareArrows } from "lucide-react";
+import { Menu, Heart, CreditCard, Crown, Gift, GitCompareArrows, History } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -18,6 +18,7 @@ export const SideMenu = () => {
   const [open, setOpen] = useState(false);
 
   const items = [
+    { icon: History, label: "Scan History", path: "/history" },
     { icon: Heart, label: "Health Profile", path: "/health-profile" },
     { icon: GitCompareArrows, label: "Compare Products", path: "/compare" },
     { icon: Gift, label: "Earn Free Scans", path: "/earn-scans" },
