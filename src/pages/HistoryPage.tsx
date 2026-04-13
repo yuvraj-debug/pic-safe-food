@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { SideMenu } from "@/components/SideMenu";
 import { toast } from "sonner";
 import type { AnalysisResult } from "@/types/analysis";
+import { normalizeAnalysis } from "@/lib/analysisNormalizer";
 
 interface ScanRecord {
   id: string;
@@ -66,20 +67,29 @@ const HistoryPage = () => {
       if (error) {
         toast.error("Failed to load history");
       } else {
-        setScans((data as unknown as ScanRecord[]) || []);
+        setScans(
+          (data ?? []).map((row) => ({
+            id: row.id,
+            product_name: row.product_name,
+            safety_score: row.safety_score,
+            safety_level: row.safety_level,
+            analysis: normalizeAnalysis(row.analysis),
+            created_at: row.created_at,
+          }))
+        );
       }
       setLoading(false);
     };
-    fetchHistory();
+
+    void fetchHistory();
   }, []);
 
-  const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = useCallback(async (id: string) => {
     const { error } = await supabase.from("scan_results").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete");
     } else {
-      setScans((prev) => prev.filter((s) => s.id !== id));
+      setScans((prev) => prev.filter((scan) => scan.id !== id));
       toast.success("Scan removed");
     }
   }, []);
@@ -87,22 +97,19 @@ const HistoryPage = () => {
   const filteredScans = useMemo(() => {
     let result = scans;
 
-    // Search filter
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((s) => s.product_name.toLowerCase().includes(q));
+      const query = searchQuery.toLowerCase();
+      result = result.filter((scan) => scan.product_name.toLowerCase().includes(query));
     }
 
-    // Safety level filter
     if (safetyFilter !== "all") {
-      result = result.filter((s) => {
-        if (safetyFilter === "safe") return s.safety_score > 60;
-        if (safetyFilter === "moderate") return s.safety_score > 30 && s.safety_score <= 60;
-        return s.safety_score <= 30;
+      result = result.filter((scan) => {
+        if (safetyFilter === "safe") return scan.safety_score > 60;
+        if (safetyFilter === "moderate") return scan.safety_score > 30 && scan.safety_score <= 60;
+        return scan.safety_score <= 30;
       });
     }
 
-    // Date filter
     if (dateFilter !== "all") {
       const now = new Date();
       let cutoff: Date;
@@ -113,17 +120,16 @@ const HistoryPage = () => {
       } else {
         cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
-      result = result.filter((s) => new Date(s.created_at) >= cutoff);
+      result = result.filter((scan) => new Date(scan.created_at) >= cutoff);
     }
 
     return result;
-  }, [scans, searchQuery, safetyFilter, dateFilter]);
+  }, [dateFilter, safetyFilter, scans, searchQuery]);
 
   const activeFilterCount = (safetyFilter !== "all" ? 1 : 0) + (dateFilter !== "all" ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-24">
-      {/* Header */}
       <div className="p-4 pb-2">
         <div className="flex items-center gap-2 mb-1">
           <History className="w-5 h-5 text-primary" />
@@ -134,7 +140,6 @@ const HistoryPage = () => {
         </p>
       </div>
 
-      {/* Search + Filter Toggle */}
       {!loading && scans.length > 0 && (
         <div className="px-4 space-y-2 mb-3">
           <div className="flex gap-2">
@@ -170,52 +175,48 @@ const HistoryPage = () => {
             </button>
           </div>
 
-          {/* Filter Panel */}
           {showFilters && (
             <div className="bg-card border border-border rounded-xl p-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-              {/* Safety Level */}
               <div>
                 <p className="text-xs text-muted-foreground font-medium mb-2 uppercase tracking-wider">Safety Level</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {safetyFilters.map((f) => (
+                  {safetyFilters.map((filter) => (
                     <button
-                      key={f.value}
-                      onClick={() => setSafetyFilter(f.value)}
+                      key={filter.value}
+                      onClick={() => setSafetyFilter(filter.value)}
                       className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
-                        safetyFilter === f.value
-                          ? f.value === "all"
+                        safetyFilter === filter.value
+                          ? filter.value === "all"
                             ? "bg-primary/15 text-primary border-primary/30"
-                            : f.color + " border"
+                            : `${filter.color} border`
                           : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
                       }`}
                     >
-                      {f.label}
+                      {filter.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Date Range */}
               <div>
                 <p className="text-xs text-muted-foreground font-medium mb-2 uppercase tracking-wider">Date Range</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {dateFilters.map((f) => (
+                  {dateFilters.map((filter) => (
                     <button
-                      key={f.value}
-                      onClick={() => setDateFilter(f.value)}
+                      key={filter.value}
+                      onClick={() => setDateFilter(filter.value)}
                       className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
-                        dateFilter === f.value
+                        dateFilter === filter.value
                           ? "bg-primary/15 text-primary border-primary/30"
                           : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
                       }`}
                     >
-                      {f.label}
+                      {filter.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Clear Filters */}
               {activeFilterCount > 0 && (
                 <button
                   onClick={() => { setSafetyFilter("all"); setDateFilter("all"); }}
@@ -229,7 +230,6 @@ const HistoryPage = () => {
         </div>
       )}
 
-      {/* Content */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -259,35 +259,40 @@ const HistoryPage = () => {
       ) : (
         <div className="px-4 space-y-2">
           {filteredScans.map((item) => (
-            <button
+            <div
               key={item.id}
-              onClick={() => navigate("/results", { state: { analysis: item.analysis } })}
-              className="w-full bg-gradient-card rounded-xl border border-border p-3 flex items-center gap-3 hover:border-primary/30 active:scale-[0.99] transition-all text-left"
+              className="w-full bg-gradient-card rounded-xl border border-border p-3 flex items-center gap-3 hover:border-primary/30 transition-all"
             >
-              <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center border ${getScoreBg(item.safety_score)}`}>
-                <span className={`text-lg font-bold font-display ${getScoreColor(item.safety_score)}`}>
-                  {item.safety_score}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-foreground text-sm font-medium truncate">
-                  {item.product_name}
-                </p>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Clock className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(item.created_at).toLocaleDateString()} · {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <button
+                onClick={() => navigate("/results", { state: { analysis: item.analysis } })}
+                className="flex-1 flex items-center gap-3 text-left"
+              >
+                <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center border ${getScoreBg(item.safety_score)}`}>
+                  <span className={`text-lg font-bold font-display ${getScoreColor(item.safety_score)}`}>
+                    {item.safety_score}
                   </span>
                 </div>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-foreground text-sm font-medium truncate">
+                    {item.product_name}
+                  </p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Clock className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(item.created_at).toLocaleDateString()} - {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
               <button
-                onClick={(e) => handleDelete(item.id, e)}
+                onClick={() => void handleDelete(item.id)}
                 className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
+                aria-label={`Delete ${item.product_name}`}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
+            </div>
           ))}
         </div>
       )}

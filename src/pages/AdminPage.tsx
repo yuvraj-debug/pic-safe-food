@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Enums, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft, Users, Crown, Loader2, Search, RefreshCw,
@@ -94,14 +95,16 @@ const AdminPage = () => {
 
     let error;
     if (existing) {
+      const updatePayload: TablesUpdate<"app_settings"> = { value, updated_at: new Date().toISOString() };
       ({ error } = await supabase
         .from("app_settings")
-        .update({ value, updated_at: new Date().toISOString() } as any)
+        .update(updatePayload)
         .eq("key", keyName));
     } else {
+      const insertPayload: TablesInsert<"app_settings"> = { key: keyName, value };
       ({ error } = await supabase
         .from("app_settings")
-        .insert({ key: keyName, value } as any));
+        .insert(insertPayload));
     }
 
     if (error) {
@@ -171,9 +174,10 @@ const AdminPage = () => {
 
   const changePlan = async (userId: string, newPlan: string) => {
     setUpdatingUser(userId);
+    const updatePayload: TablesUpdate<"user_plans"> = { plan: newPlan as Enums<"app_plan"> };
     const { error } = await supabase
       .from("user_plans")
-      .update({ plan: newPlan as any })
+      .update(updatePayload)
       .eq("user_id", userId);
 
     if (error) {

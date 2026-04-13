@@ -30,10 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           supabase.from("user_plans").select("plan").eq("user_id", userId).single(),
         ]);
         if (!mounted) return;
-        setIsAdmin(roles?.some((r: any) => r.role === "admin") ?? false);
+        setIsAdmin(roles?.some((roleRow) => roleRow.role === "admin") ?? false);
         setUserPlan(plan?.plan ?? "free");
-      } catch (e) {
-        console.error("Failed to fetch user data:", e);
+      } catch {
+        if (!mounted) return;
+        setIsAdmin(false);
+        setUserPlan("free");
       }
     };
 

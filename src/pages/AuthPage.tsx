@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { lovable } from "@/integrations/lovable/index";
 import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft, Gift } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -30,16 +31,18 @@ const AuthPage = () => {
     if (!referrer || referrer.user_id === userId) return; // Invalid or self-referral
 
     // Update the new user's referral profile
+    const referralUpdate: TablesUpdate<"referral_profiles"> = { referred_by: referrer.user_id };
     await supabase
       .from("referral_profiles")
-      .update({ referred_by: referrer.user_id } as any)
+      .update(referralUpdate)
       .eq("user_id", userId);
 
     // Create a pending referral log
-    await supabase.from("referral_logs").insert({
+    const referralLog: TablesInsert<"referral_logs"> = {
       referrer_id: referrer.user_id,
       referred_id: userId,
-    } as any);
+    };
+    await supabase.from("referral_logs").insert(referralLog);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

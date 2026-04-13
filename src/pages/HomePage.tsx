@@ -1,14 +1,24 @@
 import { useNavigate } from "react-router-dom";
 import { ScanLine, History, Clock, ChevronRight, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import logo from "@/assets/logo.png";
-import { getHistory, clearHistory } from "@/lib/scanHistory";
-import { useState } from "react";
-import type { ScanHistoryItem } from "@/types/analysis";
 import { useAuth } from "@/hooks/useAuth";
 import { useScanLimit } from "@/hooks/useScanLimit";
 import { BottomNav } from "@/components/BottomNav";
 import { SideMenu } from "@/components/SideMenu";
 import { ScanAnalytics } from "@/components/ScanAnalytics";
+import { supabase } from "@/integrations/supabase/client";
+import { normalizeAnalysis } from "@/lib/analysisNormalizer";
+import type { AnalysisResult } from "@/types/analysis";
+import { toast } from "sonner";
+
+interface RecentScan {
+  id: string;
+  productName: string;
+  safetyScore: number;
+  createdAt: string;
+  analysis: AnalysisResult;
+}
 
 const getScoreColor = (score: number) => {
   if (score <= 30) return "text-unsafe";
@@ -24,17 +34,61 @@ const getScoreBg = (score: number) => {
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [history] = useState<ScanHistoryItem[]>(getHistory());
-  const { scanCount, remaining, limit, bonusScans, planName, daysUntilReset } = useScanLimit();
+  const { user } = useAuth();
+  const [history, setHistory] = useState<RecentScan[]>([]);
+  const { scanCount, limit, bonusScans, planName, daysUntilReset } = useScanLimit();
 
-  const handleClearHistory = () => {
-    clearHistory();
-    window.location.reload();
-  };
+  const fetchRecentScans = useCallback(async () => {
+    if (!user) {
+      setHistory([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("scan_results")
+      .select("id, product_name, safety_score, created_at, analysis")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) {
+      setHistory([]);
+      return;
+    }
+
+    const normalized = (data ?? []).map((row) => ({
+      id: row.id,
+      productName: row.product_name,
+      safetyScore: row.safety_score,
+      createdAt: row.created_at,
+      analysis: normalizeAnalysis(row.analysis),
+    }));
+    setHistory(normalized);
+  }, [user]);
+
+  useEffect(() => {
+    void fetchRecentScans();
+  }, [fetchRecentScans]);
+
+  const handleClearHistory = useCallback(async () => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("scan_results")
+      .delete()
+      .eq("user_id", user.id);
+
+    if (error) {
+      toast.error("Failed to clear history.");
+      return;
+    }
+
+    setHistory([]);
+    toast.success("History cleared.");
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-hero flex flex-col pb-24">
-      {/* Hero Section */}
       <div className="flex flex-col items-center pt-8 sm:pt-12 pb-6 px-4 sm:px-6">
         <div className="flex flex-col items-center gap-4 sm:gap-5 max-w-md w-full">
           <img src={logo} alt="FoodScan AI" className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl" />
@@ -74,8 +128,8 @@ const HomePage = () => {
               { emoji: "📷", label: "Take Photo" },
               { emoji: "🔍", label: "Auto Detect" },
               { emoji: "✅", label: "Get Results" },
-            ].map((step, i) => (
-              <div key={i} className="bg-card rounded-xl border border-border p-2.5 sm:p-3 text-center">
+            ].map((step, index) => (
+              <div key={index} className="bg-card rounded-xl border border-border p-2.5 sm:p-3 text-center">
                 <span className="text-base sm:text-lg">{step.emoji}</span>
                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">{step.label}</p>
               </div>
@@ -84,10 +138,8 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* Analytics Section */}
       <ScanAnalytics />
 
-      {/* History Section */}
       {history.length > 0 && (
         <div className="flex-1 px-4 pb-4 max-w-2xl mx-auto w-full">
           <div className="flex items-center justify-between mb-3">
@@ -97,13 +149,13 @@ const HomePage = () => {
                 Recent Scans
               </h2>
             </div>
-            <button onClick={handleClearHistory} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+            <button onClick={() => void handleClearHistory()} className="text-muted-foreground hover:text-destructive transition-colors p-1">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
 
           <div className="space-y-2">
-            {history.slice(0, 5).map((item) => (
+            {history.map((item) => (
               <button
                 key={item.id}
                 onClick={() => navigate("/results", { state: { analysis: item.analysis } })}
@@ -121,7 +173,7 @@ const HomePage = () => {
                   <div className="flex items-center gap-1 mt-0.5">
                     <Clock className="w-3 h-3 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">
-                      {new Date(item.timestamp).toLocaleDateString()}
+                      {new Date(item.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 </div>

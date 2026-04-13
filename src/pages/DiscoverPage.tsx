@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Star, TrendingUp, Flame, Droplets, Cookie, ChevronRight, Loader2, Compass } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { SideMenu } from "@/components/SideMenu";
 import { supabase } from "@/integrations/supabase/client";
+import type { AnalysisResult } from "@/types/analysis";
+import { normalizeAnalysis } from "@/lib/analysisNormalizer";
 
 type Category = "all" | "snacks" | "drinks" | "chips" | "biscuits" | "instant" | "dairy" | "sweets" | "other";
 
@@ -17,12 +20,12 @@ interface DiscoverProduct {
   thumbnail: string | null;
   safety_score: number;
   safety_level: string;
-  analysis: any;
+  analysis: AnalysisResult;
   is_featured: boolean;
   created_at: string;
 }
 
-const CATEGORIES: { key: Category; label: string; icon: any }[] = [
+const CATEGORIES: { key: Category; label: string; icon: LucideIcon }[] = [
   { key: "all", label: "All", icon: Star },
   { key: "snacks", label: "Snacks", icon: Cookie },
   { key: "chips", label: "Chips", icon: Flame },
@@ -56,12 +59,19 @@ const DiscoverPage = () => {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Failed to fetch discover products:", error);
+        setProducts([]);
+        setLoading(false);
+        return;
       }
-      setProducts((data as any) ?? []);
+      setProducts(
+        (data ?? []).map((row) => ({
+          ...row,
+          analysis: normalizeAnalysis(row.analysis),
+        }))
+      );
       setLoading(false);
     };
-    fetchProducts();
+    void fetchProducts();
   }, []);
 
   const filtered = products.filter((p) => {
@@ -76,7 +86,6 @@ const DiscoverPage = () => {
   const featured = products.filter((p) => p.is_featured);
 
   const handleProductClick = (product: DiscoverProduct) => {
-    // Navigate to results page with pre-analyzed data — no AI call needed
     navigate("/results", { state: { analysis: product.analysis } });
   };
 

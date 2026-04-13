@@ -5,6 +5,12 @@ interface SafetyMeterProps {
   label: string;
 }
 
+const GLOW_CLASS_MAP = {
+  safe: "glow-safe",
+  moderate: "glow-moderate",
+  unsafe: "glow-unsafe",
+} as const;
+
 const SafetyMeter = forwardRef<HTMLDivElement, SafetyMeterProps>(({ score, label }, _ref) => {
   const [current, setCurrent] = useState(0);
   const rafRef = useRef<number>(0);
@@ -35,10 +41,11 @@ const SafetyMeter = forwardRef<HTMLDivElement, SafetyMeterProps>(({ score, label
   const offset = arcLength - (current / 100) * arcLength;
   const rotation = (current / 100) * 180 - 90;
 
-  const glowLabel = current <= 30 ? "unsafe" : current <= 60 ? "moderate" : "safe";
+  const glowLabel: keyof typeof GLOW_CLASS_MAP = current <= 30 ? "unsafe" : current <= 60 ? "moderate" : "safe";
+  const glowClass = GLOW_CLASS_MAP[glowLabel];
 
   return (
-    <div className={`flex flex-col items-center glow-${glowLabel} rounded-3xl p-4`}>
+    <div className={`flex flex-col items-center ${glowClass} rounded-3xl p-4`}>
       <div className="w-full max-w-[320px]">
         <svg viewBox="0 0 300 200" className="w-full">
           <path

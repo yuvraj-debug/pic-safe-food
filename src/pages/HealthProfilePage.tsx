@@ -240,12 +240,19 @@ function ChipToggle({
   onClick: () => void;
   activeColor: "safe" | "unsafe" | "moderate" | "primary";
 }) {
+  const activeClassMap: Record<typeof activeColor, string> = {
+    safe: "bg-safe/15 text-safe border-safe/30",
+    unsafe: "bg-unsafe/15 text-unsafe border-unsafe/30",
+    moderate: "bg-moderate/15 text-moderate border-moderate/30",
+    primary: "bg-primary/15 text-primary border-primary/30",
+  };
+
   return (
     <button
       onClick={onClick}
       className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all active:scale-95 ${
         active
-          ? `bg-${activeColor}/15 text-${activeColor} border-${activeColor}/30`
+          ? activeClassMap[activeColor]
           : "bg-card text-muted-foreground border-border hover:border-muted-foreground/30"
       }`}
     >

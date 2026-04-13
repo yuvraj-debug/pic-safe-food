@@ -1,19 +1,35 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Camera, ImagePlus, ArrowLeft, ScanLine, CheckCircle2, Sparkles,
-  ShieldCheck, Barcode, FileText, Search, Loader2
+  Camera,
+  ImagePlus,
+  ArrowLeft,
+  ScanLine,
+  CheckCircle2,
+  Sparkles,
+  ShieldCheck,
+  Barcode,
+  FileText,
+  Search,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { saveToHistory } from "@/lib/scanHistory";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { useScanLimit } from "@/hooks/useScanLimit";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import type { AnalysisResult } from "@/types/analysis";
+import { normalizeAnalysis, persistLastAnalysis } from "@/lib/analysisNormalizer";
 
 type InputMode = "photo" | "barcode" | "ingredients";
+type ScanLocationState = { autoBarcode?: string };
 
-const MODE_STEPS: Record<InputMode, { label: string; icon: any }[]> = {
+type AnalysisInvokeResult =
+  | { unableToFetch: true; message: string }
+  | { unableToFetch: false; analysis: AnalysisResult };
+
+const MODE_STEPS: Record<InputMode, { label: string; icon: LucideIcon }[]> = {
   photo: [
     { label: "Reading image", icon: Camera },
     { label: "Extracting ingredients", icon: ScanLine },
@@ -33,7 +49,7 @@ const MODE_STEPS: Record<InputMode, { label: string; icon: any }[]> = {
 const ScanPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const autoBarcode = (location.state as any)?.autoBarcode as string | undefined;
+  const autoBarcode = (location.state as ScanLocationState | null)?.autoBarcode;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<InputMode>(autoBarcode ? "barcode" : "photo");
@@ -45,80 +61,104 @@ const ScanPage = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [ingredientsInput, setIngredientsInput] = useState("");
-  const [barcodeLoading, setBarcodeLoading] = useState(false);
-  const { canScan, remaining, limit, bonusScans, logScan, planName } = useScanLimit();
+  const { canScan, remaining, limit, bonusScans, logScan } = useScanLimit();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const steps = MODE_STEPS[mode];
 
   useEffect(() => {
     if (!status) return;
-    const s = status.toLowerCase();
-    if (s.includes("fetching") || s.includes("reading image")) setActiveStep(0);
-    else if (s.includes("reading ingredient") || s.includes("extract")) {
+    const loweredStatus = status.toLowerCase();
+    if (loweredStatus.includes("fetching") || loweredStatus.includes("reading image")) {
+      setActiveStep(0);
+    } else if (loweredStatus.includes("reading ingredient") || loweredStatus.includes("extract")) {
       setActiveStep(mode === "ingredients" ? 0 : 1);
-    } else if (s.includes("analy") || s.includes("complete")) {
+    } else if (loweredStatus.includes("analy") || loweredStatus.includes("complete")) {
       setActiveStep(steps.length - 1);
     }
-  }, [status, mode, steps.length]);
+  }, [mode, status, steps.length]);
 
-  // Auto-process barcode from Discover page
-  useEffect(() => {
-    if (autoBarcode) {
-      setBarcodeInput(autoBarcode);
-      processBarcode(autoBarcode);
+  const invokeAnalysis = useCallback(async (body: Record<string, unknown>): Promise<AnalysisInvokeResult> => {
+    const { data, error } = await supabase.functions.invoke("analyze-food", { body });
+    if (error) throw error;
+
+    const payload = (data ?? {}) as Record<string, unknown>;
+    if (typeof payload.error === "string" && payload.error.trim()) {
+      throw new Error(payload.error);
     }
+
+    if (payload.unable_to_fetch === true) {
+      return {
+        unableToFetch: true,
+        message:
+          typeof payload.message === "string" && payload.message.trim()
+            ? payload.message
+            : "Unable to fetch product details. Try ingredients mode.",
+      };
+    }
+
+    return { unableToFetch: false, analysis: normalizeAnalysis(payload) };
   }, []);
 
-  const handleBarcodeDetected = useCallback((code: string) => {
-    setScannerActive(false);
-    setBarcodeInput(code);
-    processBarcode(code);
-  }, []);
-
-  const handleAnalysisComplete = async (data: any, thumbnail?: string) => {
+  const handleAnalysisComplete = useCallback(async (analysis: AnalysisResult, thumbnail?: string) => {
     setStatus("Analysis complete!");
-    await logScan();
-    saveToHistory(data, thumbnail);
+
+    const scanLogged = await logScan();
+    if (!scanLogged) {
+      toast.error("Analysis done, but scan quota update failed. Please refresh and verify usage.");
+    }
+
+    persistLastAnalysis(analysis);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from("scan_results").insert({
+      const payload: TablesInsert<"scan_results"> = {
         user_id: user.id,
-        product_name: data.product_summary?.split(".")[0]?.slice(0, 60) || "Unknown Product",
-        safety_score: data.safety_score,
-        safety_level: data.safety_level,
-        analysis: data,
+        product_name: analysis.product_summary.split(".")[0]?.slice(0, 60) || "Unknown Product",
+        safety_score: analysis.safety_score,
+        safety_level: analysis.safety_level,
+        analysis,
         thumbnail,
-      });
+      };
 
-      // Check if this is the user's first scan and complete referral
-      const { count } = await supabase
-        .from("scan_results")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
+      const { error: saveError } = await supabase.from("scan_results").insert(payload);
+      if (saveError) {
+        toast.error("Analysis complete, but saving to history failed.");
+      } else {
+        const { count, error: countError } = await supabase
+          .from("scan_results")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
 
-      if (count === 1) {
-        // First scan — trigger referral completion
-        await supabase.rpc("complete_referral", { _referred_user_id: user.id });
+        if (!countError && count === 1) {
+          const { error: referralError } = await supabase.rpc("complete_referral", { _referred_user_id: user.id });
+          if (referralError) {
+            toast.error("Scan saved, but referral reward update failed.");
+          }
+        }
       }
     }
 
-    await new Promise(r => setTimeout(r, 600));
-    navigate("/results", { state: { analysis: data } });
-  };
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    navigate("/results", { state: { analysis } });
+  }, [logScan, navigate]);
 
-  const checkLimit = () => {
+  const checkLimit = useCallback(() => {
+    if (isProcessing) return false;
     if (!canScan) {
       setShowUpgradeModal(true);
       return false;
     }
     return true;
-  };
+  }, [canScan, isProcessing]);
 
-  // Photo flow
-  const processImage = async (file: File) => {
+  const processImage = useCallback(async (file: File) => {
     if (!checkLimit()) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload a valid image file.");
+      return;
+    }
+
     setIsProcessing(true);
     setStatus("Reading image...");
     try {
@@ -131,54 +171,49 @@ const ScanPage = () => {
       setPreview(base64);
       setStatus("Extracting ingredients...");
 
-      const { data, error } = await supabase.functions.invoke("analyze-food", {
-        body: { image: base64 },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.unable_to_fetch) {
-        toast.error(data.message || "Unable to fetch product details. Please try scanning the ingredients list.", {
+      const result = await invokeAnalysis({ image: base64 });
+      if (result.unableToFetch) {
+        toast.error(result.message, {
           duration: 5000,
-          action: { label: "Paste ingredients", onClick: () => { setMode("ingredients"); } },
+          action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
         });
-        setIsProcessing(false);
-        setStatus("");
-        setActiveStep(0);
         return;
       }
 
       const thumbnail = base64.length > 50000 ? undefined : base64;
-      await handleAnalysisComplete(data, thumbnail);
-    } catch (err: any) {
-      console.error("Analysis failed:", err);
-      toast.error(err?.message || "Failed to analyze image. Please try again.");
+      await handleAnalysisComplete(result.analysis, thumbnail);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to analyze image. Please try again.";
+      toast.error(message);
     } finally {
       setIsProcessing(false);
       setStatus("");
       setActiveStep(0);
     }
-  };
+  }, [checkLimit, handleAnalysisComplete, invokeAnalysis]);
 
-  // Barcode flow
-  const processBarcode = async (code: string) => {
+  const processBarcode = useCallback(async (code: string) => {
     if (!checkLimit()) return;
+
     const trimmed = code.trim();
     if (!trimmed) {
       toast.error("Please enter a barcode number.");
       return;
     }
+
     setIsProcessing(true);
     setStatus("Fetching product...");
     try {
       const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${trimmed}.json`);
+      if (!res.ok) {
+        throw new Error("Unable to contact product database. Please try again.");
+      }
       const productData = await res.json();
 
       if (productData.status !== 1 || !productData.product) {
         toast.error("Product not found. Try pasting ingredients manually.", {
-          action: { label: "Paste ingredients", onClick: () => { setMode("ingredients"); } },
+          action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
         });
-        setIsProcessing(false);
-        setStatus("");
         return;
       }
 
@@ -187,14 +222,11 @@ const ScanPage = () => {
 
       if (!ingredientsText) {
         toast.error("No ingredients found for this product. Try pasting them manually.", {
-          action: { label: "Paste ingredients", onClick: () => { setMode("ingredients"); } },
+          action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
         });
-        setIsProcessing(false);
-        setStatus("");
         return;
       }
 
-      // Build enriched text for analysis
       const parts = [
         product.product_name && `Product: ${product.product_name}`,
         product.brands && `Brand: ${product.brands}`,
@@ -204,62 +236,81 @@ const ScanPage = () => {
       ].filter(Boolean).join("\n");
 
       setStatus("Reading ingredients...");
+      const result = await invokeAnalysis({ ingredients_text: parts });
+      if (result.unableToFetch) {
+        toast.error(result.message, {
+          action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
+        });
+        return;
+      }
 
-      const { data, error } = await supabase.functions.invoke("analyze-food", {
-        body: { ingredients_text: parts },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      await handleAnalysisComplete(data);
-    } catch (err: any) {
-      console.error("Barcode analysis failed:", err);
-      toast.error(err?.message || "Failed to analyze product. Please try again.");
+      await handleAnalysisComplete(result.analysis);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to analyze product. Please try again.";
+      toast.error(message);
     } finally {
       setIsProcessing(false);
       setStatus("");
       setActiveStep(0);
     }
-  };
+  }, [checkLimit, handleAnalysisComplete, invokeAnalysis]);
 
-  // Ingredients text flow
-  const processIngredients = async () => {
+  const processIngredients = useCallback(async () => {
     if (!checkLimit()) return;
+
     const trimmed = ingredientsInput.trim();
     if (!trimmed) {
       toast.error("Please paste some ingredients first.");
       return;
     }
+
     setIsProcessing(true);
     setStatus("Reading ingredients...");
     try {
-      const { data, error } = await supabase.functions.invoke("analyze-food", {
-        body: { ingredients_text: trimmed },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const result = await invokeAnalysis({ ingredients_text: trimmed });
+      if (result.unableToFetch) {
+        toast.error(result.message);
+        return;
+      }
 
-      await handleAnalysisComplete(data);
-    } catch (err: any) {
-      console.error("Ingredients analysis failed:", err);
-      toast.error(err?.message || "Failed to analyze ingredients. Please try again.");
+      await handleAnalysisComplete(result.analysis);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to analyze ingredients. Please try again.";
+      toast.error(message);
     } finally {
       setIsProcessing(false);
       setStatus("");
       setActiveStep(0);
     }
-  };
+  }, [checkLimit, handleAnalysisComplete, ingredientsInput, invokeAnalysis]);
+
+  useEffect(() => {
+    if (autoBarcode) {
+      setBarcodeInput(autoBarcode);
+      void processBarcode(autoBarcode);
+    }
+  }, [autoBarcode, processBarcode]);
+
+  const handleBarcodeDetected = useCallback((code: string) => {
+    setScannerActive(false);
+    setBarcodeInput(code);
+    void processBarcode(code);
+  }, [processBarcode]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) processImage(file);
+    if (file) {
+      void processImage(file);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) processImage(file);
+    if (file && file.type.startsWith("image/")) {
+      void processImage(file);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -269,7 +320,7 @@ const ScanPage = () => {
 
   const isComplete = status.toLowerCase().includes("complete");
 
-  const TAB_OPTIONS: { key: InputMode; label: string; icon: any }[] = [
+  const tabOptions: { key: InputMode; label: string; icon: LucideIcon }[] = [
     { key: "photo", label: "Photo", icon: Camera },
     { key: "barcode", label: "Barcode", icon: Barcode },
     { key: "ingredients", label: "Ingredients", icon: FileText },
@@ -277,7 +328,6 @@ const ScanPage = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 animate-fade-in">
         <div className="flex items-center gap-3">
           <button
@@ -290,23 +340,23 @@ const ScanPage = () => {
         </div>
         <span className="text-xs text-muted-foreground bg-card px-3 py-1.5 rounded-full border border-border font-display">
           <Sparkles className="w-3 h-3 inline mr-1 text-primary" />
-         {remaining}/{limit}{bonusScans > 0 && <span className="text-primary font-semibold"> +{bonusScans}</span>} scans
+          {remaining}/{limit}{bonusScans > 0 && <span className="text-primary font-semibold"> +{bonusScans}</span>} scans
         </span>
       </div>
 
-      {/* Tab Selector */}
       {!isProcessing && canScan && (
         <div className="flex justify-center px-4 pb-2 animate-fade-in">
           <div className="inline-flex bg-card border border-border rounded-2xl p-1 gap-1">
-            {TAB_OPTIONS.map(({ key, label, icon: Icon }) => (
+            {tabOptions.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setMode(key)}
+                disabled={isProcessing}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-display font-medium transition-all duration-200 ${
                   mode === key
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                }`}
+                } disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 <Icon className="w-4 h-4" />
                 {label}
@@ -316,10 +366,8 @@ const ScanPage = () => {
         </div>
       )}
 
-      {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6">
         {!canScan && !isProcessing ? (
-          /* Limit Reached */
           <div className="flex flex-col items-center gap-4 text-center animate-scale-in">
             <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center relative">
               <ScanLine className="w-9 h-9 text-destructive" />
@@ -337,7 +385,6 @@ const ScanPage = () => {
             </button>
           </div>
         ) : isProcessing ? (
-          /* Processing State */
           <div className="flex flex-col items-center gap-6 w-full max-w-sm animate-fade-in">
             {preview && mode === "photo" && (
               <div className="relative animate-scale-in">
@@ -389,15 +436,14 @@ const ScanPage = () => {
               </p>
             </div>
 
-            {/* Progress Steps */}
             <div className="w-full space-y-3 mt-2">
-              {steps.map((step, i) => {
-                const isActive = i === activeStep;
-                const isDone = i < activeStep || isComplete;
+              {steps.map((step, index) => {
+                const isActive = index === activeStep;
+                const isDone = index < activeStep || isComplete;
                 const StepIcon = step.icon;
                 return (
                   <div
-                    key={i}
+                    key={index}
                     className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${
                       isActive ? "bg-primary/10 border border-primary/20"
                         : isDone ? "bg-card/60 border border-border"
@@ -429,7 +475,6 @@ const ScanPage = () => {
             </div>
           </div>
         ) : (
-          /* Input States */
           <>
             {mode === "photo" && (
               <>
@@ -462,13 +507,15 @@ const ScanPage = () => {
                 <div className="flex gap-3 w-full max-w-sm animate-fade-in-up">
                   <button
                     onClick={() => cameraInputRef.current?.click()}
-                    className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.97] transition-all duration-200"
+                    disabled={isProcessing}
+                    className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.97] transition-all duration-200 disabled:opacity-50"
                   >
                     <Camera className="w-5 h-5" />Camera
                   </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 flex items-center justify-center gap-2 bg-secondary text-secondary-foreground font-display font-semibold py-4 rounded-2xl hover:bg-secondary/80 active:scale-[0.97] transition-all duration-200 border border-border"
+                    disabled={isProcessing}
+                    className="flex-1 flex items-center justify-center gap-2 bg-secondary text-secondary-foreground font-display font-semibold py-4 rounded-2xl hover:bg-secondary/80 active:scale-[0.97] transition-all duration-200 border border-border disabled:opacity-50"
                   >
                     <ImagePlus className="w-5 h-5" />Gallery
                   </button>
@@ -488,7 +535,6 @@ const ScanPage = () => {
                   </p>
                 </div>
 
-                {/* Camera Scanner */}
                 {scannerActive ? (
                   <div className="w-full space-y-3">
                     <BarcodeScanner onDetected={handleBarcodeDetected} active={scannerActive} />
@@ -519,12 +565,16 @@ const ScanPage = () => {
                       placeholder="e.g. 8901063034136"
                       value={barcodeInput}
                       onChange={(e) => setBarcodeInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && processBarcode(barcodeInput)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          void processBarcode(barcodeInput);
+                        }
+                      }}
                       className="w-full bg-card border border-border rounded-2xl px-4 py-4 text-foreground placeholder:text-muted-foreground text-center text-lg font-display tracking-widest focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                     />
                     <button
-                      onClick={() => processBarcode(barcodeInput)}
-                      disabled={!barcodeInput.trim() || barcodeLoading}
+                      onClick={() => void processBarcode(barcodeInput)}
+                      disabled={!barcodeInput.trim() || isProcessing}
                       className="w-full flex items-center justify-center gap-2 bg-secondary text-secondary-foreground font-display font-semibold py-4 rounded-2xl hover:bg-secondary/80 active:scale-[0.97] transition-all duration-200 border border-border disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Search className="w-5 h-5" />
@@ -558,8 +608,8 @@ const ScanPage = () => {
                     className="w-full bg-card border border-border rounded-2xl px-4 py-4 text-foreground placeholder:text-muted-foreground text-sm font-body leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all resize-none"
                   />
                   <button
-                    onClick={processIngredients}
-                    disabled={!ingredientsInput.trim()}
+                    onClick={() => void processIngredients()}
+                    disabled={!ingredientsInput.trim() || isProcessing}
                     className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-display font-semibold py-4 rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.97] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ShieldCheck className="w-5 h-5" />

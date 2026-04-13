@@ -24,51 +24,64 @@ export function useScanLimit() {
   const canScan = remaining > 0;
 
   const fetchUsage = useCallback(async () => {
-    if (!user) { setLoading(false); return; }
-
-    // Reset if needed (server-side via security definer)
-    await supabase.rpc("reset_scan_if_needed", { _user_id: user.id });
-
-    const [usageRes, referralRes] = await Promise.all([
-      supabase
-        .from("scan_usage")
-        .select("scan_count, reset_date")
-        .eq("user_id", user.id)
-        .single(),
-      supabase
-        .from("referral_profiles")
-        .select("referral_rewards_scans")
-        .eq("user_id", user.id)
-        .single(),
-    ]);
-
-    if (usageRes.data) {
-      setScanCount(usageRes.data.scan_count);
-      setResetDate(usageRes.data.reset_date);
+    if (!user) {
+      setScanCount(0);
+      setBonusScans(0);
+      setResetDate(null);
+      setLoading(false);
+      return;
     }
-    if (referralRes.data) {
-      setBonusScans(referralRes.data.referral_rewards_scans ?? 0);
+
+    setLoading(true);
+    try {
+      await supabase.rpc("reset_scan_if_needed", { _user_id: user.id });
+
+      const [usageRes, referralRes] = await Promise.all([
+        supabase
+          .from("scan_usage")
+          .select("scan_count, reset_date")
+          .eq("user_id", user.id)
+          .single(),
+        supabase
+          .from("referral_profiles")
+          .select("referral_rewards_scans")
+          .eq("user_id", user.id)
+          .single(),
+      ]);
+
+      if (usageRes.error) throw usageRes.error;
+
+      setScanCount(usageRes.data?.scan_count ?? 0);
+      setResetDate(usageRes.data?.reset_date ?? null);
+      setBonusScans(referralRes.data?.referral_rewards_scans ?? 0);
+    } catch {
+      setScanCount(0);
+      setBonusScans(0);
+      setResetDate(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user]);
 
   useEffect(() => {
-    fetchUsage();
+    void fetchUsage();
   }, [fetchUsage, userPlan]);
 
   const logScan = async () => {
     if (!user) return false;
 
     const { data: newCount, error } = await supabase.rpc("increment_scan_count", { _user_id: user.id });
+    if (error || newCount === null) return false;
 
-    if (!error && newCount !== null) {
-      setScanCount(newCount);
-      await supabase.from("scan_logs").insert({ user_id: user.id });
-      // Re-fetch to keep bonusScans and other data in sync
-      await fetchUsage();
-      return true;
+    setScanCount(newCount);
+    const { error: logError } = await supabase.from("scan_logs").insert({ user_id: user.id });
+    await fetchUsage();
+
+    if (logError) {
+      return false;
     }
-    return false;
+
+    return true;
   };
 
   const daysUntilReset = resetDate

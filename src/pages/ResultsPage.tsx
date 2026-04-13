@@ -1,8 +1,19 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
-  ArrowLeft, FileText, FlaskConical, AlertTriangle, Leaf,
-  ShieldAlert, Utensils, Eye, EyeOff, Info, ScanLine, Share2, Heart,
+  ArrowLeft,
+  FileText,
+  FlaskConical,
+  AlertTriangle,
+  Leaf,
+  ShieldAlert,
+  Utensils,
+  Eye,
+  EyeOff,
+  Info,
+  ScanLine,
+  Share2,
+  Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 import ShareModal from "@/components/ShareModal";
@@ -12,8 +23,34 @@ import PersonalizedWarnings from "@/components/PersonalizedWarnings";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { computePersonalizedScore } from "@/lib/personalizedScoring";
 import { useAuth } from "@/hooks/useAuth";
+import { loadLastAnalysis, normalizeAnalysis, persistLastAnalysis } from "@/lib/analysisNormalizer";
 import type { AnalysisResult } from "@/types/analysis";
 import type { PersonalizedResult } from "@/lib/personalizedScoring";
+
+type ResultsLocationState = { analysis?: unknown };
+type ScoreTone = "safe" | "moderate" | "unsafe";
+
+const SCORE_TONE_CLASSES: Record<ScoreTone, {
+  text: string;
+  border: string;
+  bg: string;
+}> = {
+  safe: {
+    text: "text-safe",
+    border: "border-safe/20",
+    bg: "bg-safe/10",
+  },
+  moderate: {
+    text: "text-moderate",
+    border: "border-moderate/20",
+    bg: "bg-moderate/10",
+  },
+  unsafe: {
+    text: "text-unsafe",
+    border: "border-unsafe/20",
+    bg: "bg-unsafe/10",
+  },
+};
 
 const getRiskBadge = (level?: string) => {
   switch (level) {
@@ -26,10 +63,22 @@ const getRiskBadge = (level?: string) => {
   }
 };
 
+const getToneFromScore = (score: number): ScoreTone => {
+  if (score <= 30) return "unsafe";
+  if (score <= 60) return "moderate";
+  return "safe";
+};
+
+const getLabelFromScore = (score: number): string => {
+  if (score <= 30) return "Unsafe";
+  if (score <= 60) return "Moderate";
+  return "Safe";
+};
+
 const ResultsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const analysis = location.state?.analysis as AnalysisResult | undefined;
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const { profile, loading: profileLoading, hasProfile } = useHealthProfile();
@@ -38,9 +87,22 @@ const ResultsPage = () => {
   const canPersonalize = userPlan !== "free";
 
   useEffect(() => {
+    const routeAnalysis = (location.state as ResultsLocationState | null)?.analysis;
+    if (routeAnalysis) {
+      const normalized = normalizeAnalysis(routeAnalysis);
+      persistLastAnalysis(normalized);
+      setAnalysis(normalized);
+      return;
+    }
+    setAnalysis(loadLastAnalysis());
+  }, [location.state]);
+
+  useEffect(() => {
     if (analysis && !profileLoading && hasProfile && canPersonalize) {
       setPersonalized(computePersonalizedScore(analysis, profile));
+      return;
     }
+    setPersonalized(null);
   }, [analysis, profile, profileLoading, hasProfile, canPersonalize]);
 
   if (!analysis) {
@@ -57,12 +119,12 @@ const ResultsPage = () => {
   }
 
   const displayScore = personalized ? personalized.personalizedScore : analysis.safety_score;
-  const scoreColor = displayScore <= 30 ? "unsafe" : displayScore <= 60 ? "moderate" : "safe";
-  const displayLevel = displayScore <= 30 ? "Unsafe" : displayScore <= 60 ? "Moderate" : "Safe";
+  const displayLevel = getLabelFromScore(displayScore);
+  const scoreTone = getToneFromScore(displayScore);
+  const toneClasses = SCORE_TONE_CLASSES[scoreTone];
 
   return (
     <div className="min-h-screen bg-background pb-8">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 max-w-2xl mx-auto">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -80,9 +142,13 @@ const ResultsPage = () => {
           </button>
           <button
             onClick={async () => {
-              const shareText = `🔍 ${analysis.overall_verdict || "Food Safety Check"}\n\n📊 Safety Score: ${displayScore}/100 (${displayLevel})\n\n${analysis.simple_summary || analysis.product_summary}\n\n${analysis.harmful_ingredients.length > 0 ? `⚠️ ${analysis.harmful_ingredients.length} concern(s) found` : "✅ No major concerns"}\n\nScanned with PicSafe Food`;
+              const shareText = `${analysis.overall_verdict || "Food Safety Check"}\n\nSafety Score: ${displayScore}/100 (${displayLevel})\n\n${analysis.simple_summary || analysis.product_summary}\n\n${analysis.harmful_ingredients.length > 0 ? `${analysis.harmful_ingredients.length} concern(s) found` : "No major concerns"}\n\nScanned with PicSafe Food`;
               if (navigator.share) {
-                try { await navigator.share({ title: "PicSafe Food Scan Result", text: shareText }); } catch {}
+                try {
+                  await navigator.share({ title: "PicSafe Food Scan Result", text: shareText });
+                } catch {
+                  // Ignore cancelled share.
+                }
               } else {
                 await navigator.clipboard.writeText(shareText);
                 toast.success("Results copied to clipboard!");
@@ -96,19 +162,17 @@ const ResultsPage = () => {
       </div>
 
       <div className="max-w-2xl mx-auto">
-        {/* Safety Meter - shows personalized score */}
         <div className="px-4 sm:px-6 mb-4">
           <SafetyMeter score={displayScore} label={displayLevel} />
           {personalized && personalized.penaltyTotal > 0 && (
             <p className="text-center text-xs text-muted-foreground mt-1">
               Base score: <span className="font-semibold text-foreground">{personalized.baseScore}</span>
-              {" → "}
-              Personalized: <span className={`font-semibold text-${scoreColor}`}>{personalized.personalizedScore}</span>
+              {" -> "}
+              Personalized: <span className={`font-semibold ${toneClasses.text}`}>{personalized.personalizedScore}</span>
             </p>
           )}
         </div>
 
-        {/* Personalized Warnings */}
         {personalized && personalized.warnings.length > 0 && (
           <div className="px-4 mb-4">
             <PersonalizedWarnings
@@ -120,7 +184,6 @@ const ResultsPage = () => {
           </div>
         )}
 
-        {/* No health profile / upgrade banner */}
         {!profileLoading && !hasProfile && canPersonalize && (
           <div className="px-4 mb-4">
             <button
@@ -148,9 +211,8 @@ const ResultsPage = () => {
           </div>
         )}
 
-        {/* Simple Summary */}
         <div className="px-4 mb-4">
-          <div className={`rounded-2xl p-4 border bg-gradient-card border-${scoreColor}/20`}>
+          <div className={`rounded-2xl p-4 border bg-gradient-card ${toneClasses.border}`}>
             {analysis.overall_verdict && (
               <p className="font-display font-bold text-foreground text-base mb-2">
                 {analysis.overall_verdict}
@@ -159,47 +221,45 @@ const ResultsPage = () => {
             <p className="text-secondary-foreground text-sm leading-relaxed">
               {analysis.simple_summary || analysis.product_summary}
             </p>
-            <div className={`mt-3 flex items-start gap-2 p-3 rounded-xl bg-${scoreColor}/10 border border-${scoreColor}/20`}>
-              <Info className={`w-4 h-4 mt-0.5 text-${scoreColor} shrink-0`} />
-              <p className={`text-sm font-medium text-${scoreColor}`}>
+            <div className={`mt-3 flex items-start gap-2 p-3 rounded-xl border ${toneClasses.bg} ${toneClasses.border}`}>
+              <Info className={`w-4 h-4 mt-0.5 shrink-0 ${toneClasses.text}`} />
+              <p className={`text-sm font-medium ${toneClasses.text}`}>
                 {analysis.recommendation}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Quick Overview Chips */}
         <div className="px-4 mb-4">
           <div className="flex flex-wrap gap-2">
             {analysis.harmful_ingredients.length > 0 && (
               <span className="text-xs px-3 py-1.5 rounded-full bg-unsafe/10 text-unsafe border border-unsafe/20 font-medium">
-                ⚠️ {analysis.harmful_ingredients.length} Concern{analysis.harmful_ingredients.length > 1 ? "s" : ""}
+                Warning: {analysis.harmful_ingredients.length} concern{analysis.harmful_ingredients.length > 1 ? "s" : ""}
               </span>
             )}
             {analysis.beneficial_ingredients.length > 0 && (
               <span className="text-xs px-3 py-1.5 rounded-full bg-safe/10 text-safe border border-safe/20 font-medium">
-                ✅ {analysis.beneficial_ingredients.length} Good ingredient{analysis.beneficial_ingredients.length > 1 ? "s" : ""}
+                Good: {analysis.beneficial_ingredients.length} ingredient{analysis.beneficial_ingredients.length > 1 ? "s" : ""}
               </span>
             )}
             {analysis.allergens.length > 0 && (
               <span className="text-xs px-3 py-1.5 rounded-full bg-moderate/10 text-moderate border border-moderate/20 font-medium">
-                🔶 {analysis.allergens.length} Allergen{analysis.allergens.length > 1 ? "s" : ""}
+                Allergens: {analysis.allergens.length}
               </span>
             )}
             {analysis.allergens.length === 0 && (
               <span className="text-xs px-3 py-1.5 rounded-full bg-safe/10 text-safe border border-safe/20 font-medium">
-                ✅ No allergens detected
+                No allergens detected
               </span>
             )}
             {personalized && personalized.penaltyTotal > 0 && (
               <span className="text-xs px-3 py-1.5 rounded-full bg-unsafe/10 text-unsafe border border-unsafe/20 font-medium">
-                ❤️ {personalized.warnings.length} Personal warning{personalized.warnings.length > 1 ? "s" : ""}
+                Personal warning{personalized.warnings.length > 1 ? "s" : ""}: {personalized.warnings.length}
               </span>
             )}
           </div>
         </div>
 
-        {/* Toggle Details */}
         <div className="px-4 mb-3">
           <button
             onClick={() => setShowDetails(!showDetails)}
@@ -210,7 +270,6 @@ const ResultsPage = () => {
           </button>
         </div>
 
-        {/* Detailed Analysis Cards */}
         {showDetails && (
           <div className="px-4 space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <AnalysisCard title="Product Summary" icon={<FileText className="w-5 h-5" />} defaultOpen>
@@ -219,8 +278,8 @@ const ResultsPage = () => {
 
             <AnalysisCard title="Ingredient Breakdown" icon={<FlaskConical className="w-5 h-5" />}>
               <div className="space-y-3">
-                {analysis.ingredient_explanations.map((item, i) => (
-                  <div key={i} className="bg-muted/50 rounded-xl p-3">
+                {analysis.ingredient_explanations.map((item, index) => (
+                  <div key={index} className="bg-muted/50 rounded-xl p-3">
                     <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
                       <p className="font-semibold text-foreground text-sm">{item.ingredient}</p>
                       {getRiskBadge(item.risk_level)}
@@ -239,10 +298,10 @@ const ResultsPage = () => {
             {analysis.health_warnings.length > 0 && (
               <AnalysisCard title="Health Warnings" icon={<AlertTriangle className="w-5 h-5" />} variant="warning">
                 <ul className="space-y-2">
-                  {analysis.health_warnings.map((w, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-0.5">⚠️</span>
-                      <span className="text-sm">{w}</span>
+                  {analysis.health_warnings.map((warning, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="mt-0.5">-</span>
+                      <span className="text-sm">{warning}</span>
                     </li>
                   ))}
                 </ul>
@@ -252,10 +311,10 @@ const ResultsPage = () => {
             {analysis.beneficial_ingredients.length > 0 && (
               <AnalysisCard title="Good Ingredients" icon={<Leaf className="w-5 h-5" />} variant="safe">
                 <ul className="space-y-2">
-                  {analysis.beneficial_ingredients.map((b, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-0.5">✅</span>
-                      <span className="text-sm">{b}</span>
+                  {analysis.beneficial_ingredients.map((benefit, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="mt-0.5">+</span>
+                      <span className="text-sm">{benefit}</span>
                     </li>
                   ))}
                 </ul>
@@ -265,9 +324,9 @@ const ResultsPage = () => {
             {analysis.allergens.length > 0 && (
               <AnalysisCard title="Allergen Alerts" icon={<ShieldAlert className="w-5 h-5" />} variant="warning">
                 <div className="flex flex-wrap gap-2">
-                  {analysis.allergens.map((a, i) => (
-                    <span key={i} className="bg-unsafe/10 text-unsafe px-3 py-1.5 rounded-full text-sm font-medium border border-unsafe/20">
-                      {a}
+                  {analysis.allergens.map((allergen, index) => (
+                    <span key={index} className="bg-unsafe/10 text-unsafe px-3 py-1.5 rounded-full text-sm font-medium border border-unsafe/20">
+                      {allergen}
                     </span>
                   ))}
                 </div>
@@ -280,7 +339,6 @@ const ResultsPage = () => {
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="px-4 mt-6 space-y-3">
           <button
             onClick={() => setShowShareModal(true)}
@@ -304,7 +362,6 @@ const ResultsPage = () => {
           </button>
         </div>
 
-        {/* Share Modal */}
         {showShareModal && (
           <ShareModal
             analysis={analysis}

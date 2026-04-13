@@ -25,28 +25,26 @@ const PersonalizedWarnings = ({
         </h3>
       </div>
 
-      {/* Score comparison */}
       <div className="flex items-center gap-3 text-xs">
         <span className="px-2 py-1 rounded-lg bg-muted text-muted-foreground">
           Base: {baseScore}
         </span>
-        <span className="text-muted-foreground">→</span>
+        <span className="text-muted-foreground">-&gt;</span>
         <span className="px-2 py-1 rounded-lg bg-unsafe/10 text-unsafe font-semibold">
           Your Score: {personalizedScore}
         </span>
         <span className="text-unsafe/70 ml-auto">-{penaltyTotal} pts</span>
       </div>
 
-      {/* Warnings list */}
       <ul className="space-y-2">
-        {warnings.map((w, i) => (
-          <li key={i} className="flex items-start gap-2">
+        {warnings.map((warning, index) => (
+          <li key={index} className="flex items-start gap-2">
             <AlertTriangle
               className={`w-4 h-4 mt-0.5 shrink-0 ${
-                w.severity === "high" ? "text-unsafe" : "text-moderate"
+                warning.severity === "high" ? "text-unsafe" : "text-moderate"
               }`}
             />
-            <span className="text-sm text-foreground">{w.message}</span>
+            <span className="text-sm text-foreground">{warning.message}</span>
           </li>
         ))}
       </ul>
