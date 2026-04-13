@@ -5,11 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft, Users, Crown, Loader2, Search, RefreshCw,
   Shield, BarChart3, Mail, Calendar, ChevronDown, ChevronUp, Clock, ShoppingCart,
-  Key, Save, Eye, EyeOff, Check, AlertCircle,
+  Key, Save, Eye, EyeOff, Check, AlertCircle, Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "@/components/BottomNav";
 import { SideMenu } from "@/components/SideMenu";
+import { AdminDiscoverManager } from "@/components/AdminDiscoverManager";
 
 interface ScanEntry {
   id: string;
