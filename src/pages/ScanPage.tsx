@@ -62,7 +62,20 @@ const ScanPage = () => {
     }
   }, [status, mode, steps.length]);
 
-  const handleAnalysisComplete = async (data: any, thumbnail?: string) => {
+  // Auto-process barcode from Discover page
+  useEffect(() => {
+    if (autoBarcode) {
+      setBarcodeInput(autoBarcode);
+      processBarcode(autoBarcode);
+    }
+  }, []);
+
+  const handleBarcodeDetected = useCallback((code: string) => {
+    setScannerActive(false);
+    setBarcodeInput(code);
+    processBarcode(code);
+  }, []);
+
     setStatus("Analysis complete!");
     await logScan();
     saveToHistory(data, thumbnail);
