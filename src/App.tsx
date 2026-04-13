@@ -12,6 +12,7 @@ import AdminPage from "./pages/AdminPage";
 import PricingPage from "./pages/PricingPage";
 import HistoryPage from "./pages/HistoryPage";
 import ComparePage from "./pages/ComparePage";
+import DiscoverPage from "./pages/DiscoverPage";
 
 import ProfilePage from "./pages/ProfilePage";
 import HealthProfilePage from "./pages/HealthProfilePage";
@@ -62,6 +63,7 @@ const AppRoutes = () => {
       <Route path="/health-profile" element={<ProtectedRoute><HealthProfilePage /></ProtectedRoute>} />
       <Route path="/earn-scans" element={<ProtectedRoute><EarnScansPage /></ProtectedRoute>} />
       <Route path="/compare" element={<ProtectedRoute><ComparePage /></ProtectedRoute>} />
+      <Route path="/discover" element={<ProtectedRoute><DiscoverPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
