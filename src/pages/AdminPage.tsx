@@ -450,6 +450,11 @@ const AdminPage = () => {
         </div>
       )}
 
+      {/* Discover Product Management */}
+      <div className="px-4 mt-6">
+        <AdminDiscoverManager />
+      </div>
+
       {/* API Key Management */}
       <div className="px-4 mt-6 space-y-3">
         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider flex items-center gap-1.5">
