@@ -1,5 +1,5 @@
-import { useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Camera, ImagePlus, ArrowLeft, ScanLine, CheckCircle2, Sparkles,
   ShieldCheck, Barcode, FileText, Search, Loader2
@@ -9,6 +9,7 @@ import { saveToHistory } from "@/lib/scanHistory";
 import { toast } from "sonner";
 import { useScanLimit } from "@/hooks/useScanLimit";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 type InputMode = "photo" | "barcode" | "ingredients";
 
@@ -31,9 +32,12 @@ const MODE_STEPS: Record<InputMode, { label: string; icon: any }[]> = {
 
 const ScanPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const autoBarcode = (location.state as any)?.autoBarcode as string | undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<InputMode>("photo");
+  const [mode, setMode] = useState<InputMode>(autoBarcode ? "barcode" : "photo");
+  const [scannerActive, setScannerActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState("");
