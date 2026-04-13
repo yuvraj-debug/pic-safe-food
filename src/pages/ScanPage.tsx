@@ -76,6 +76,7 @@ const ScanPage = () => {
     processBarcode(code);
   }, []);
 
+  const handleAnalysisComplete = async (data: any, thumbnail?: string) => {
     setStatus("Analysis complete!");
     await logScan();
     saveToHistory(data, thumbnail);
