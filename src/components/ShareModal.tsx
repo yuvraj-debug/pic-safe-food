@@ -24,6 +24,9 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
     analysis.product_summary?.split(".")[0]?.slice(0, 60) ||
     "Product Analysis";
 
+  const isAbortError = (error: unknown) =>
+    error instanceof DOMException && error.name === "AbortError";
+
   // Generate a preview image on mount
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -87,8 +90,8 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
           files: [file],
         });
         return;
-      } catch (e: any) {
-        if (e?.name === "AbortError") return; // User cancelled
+      } catch (e: unknown) {
+        if (isAbortError(e)) return; // User cancelled
       }
     }
 
@@ -105,8 +108,8 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
         // Also download the image so they have it
         triggerDownload(blob);
         return;
-      } catch (e: any) {
-        if (e?.name === "AbortError") return;
+      } catch (e: unknown) {
+        if (isAbortError(e)) return;
       }
     }
 
@@ -117,7 +120,9 @@ const ShareModal = forwardRef<HTMLDivElement, Props>(({ analysis, displayScore, 
       ]);
       toast.success("Image copied to clipboard! Paste it in WhatsApp, Instagram, etc.");
       return;
-    } catch {}
+    } catch (err) {
+      console.warn("Image clipboard copy failed:", err);
+    }
 
     // 4. Final fallback: download
     triggerDownload(blob);

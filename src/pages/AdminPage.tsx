@@ -15,7 +15,9 @@ import { AdminDiscoverManager } from "@/components/AdminDiscoverManager";
 
 interface ScanEntry {
   id: string;
-  scanned_at: string;
+  created_at: string;
+  product_name: string;
+  safety_score: number;
 }
 
 interface UserRow {
@@ -34,9 +36,11 @@ interface PurchaseIntent {
   email?: string;
 }
 
+const API_KEY_NAMES = ["STEPFUN_API_KEY", "GROQ_API_KEY", "LOVABLE_API_KEY"] as const;
+
 const AdminPage = () => {
   const navigate = useNavigate();
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { isAdmin, loading: authLoading, user } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,8 +58,20 @@ const AdminPage = () => {
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, "saved" | "error" | null>>({});
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) navigate("/");
-  }, [isAdmin, authLoading, navigate]);
+    if (!authLoading && user && !isAdmin) {
+      navigate("/");
+    }
+  }, [isAdmin, authLoading, navigate, user]);
+
+  const fetchApiKeys = useCallback(async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", API_KEY_NAMES);
+    const keys: Record<string, string> = {};
+    data?.forEach((row) => { keys[row.key] = row.value; });
+    setApiKeys(keys);
+  }, []);
 
   useEffect(() => {
     if (isAdmin) {
@@ -63,19 +79,7 @@ const AdminPage = () => {
       fetchIntents();
       fetchApiKeys();
     }
-  }, [isAdmin]);
-
-  const API_KEY_NAMES = ["STEPFUN_API_KEY", "GROQ_API_KEY", "LOVABLE_API_KEY"];
-
-  const fetchApiKeys = async () => {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("key, value")
-      .in("key", API_KEY_NAMES);
-    const keys: Record<string, string> = {};
-    data?.forEach((row: any) => { keys[row.key] = row.value; });
-    setApiKeys(keys);
-  };
+  }, [fetchApiKeys, isAdmin]);
 
   const saveApiKey = async (keyName: string) => {
     const value = apiKeys[keyName]?.trim();
@@ -120,23 +124,34 @@ const AdminPage = () => {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const [{ data: profiles }, { data: plans }, { data: scans }] = await Promise.all([
-      supabase.from("profiles").select("*"),
-      supabase.from("user_plans").select("*"),
-      supabase.from("scan_logs").select("user_id"),
+    const [profilesRes, plansRes, usageRes, resultsRes] = await Promise.all([
+      supabase.from("profiles").select("id, email, created_at"),
+      supabase.from("user_plans").select("user_id, plan"),
+      supabase.from("scan_usage").select("user_id, scan_count"),
+      supabase.from("scan_results").select("user_id"),
     ]);
 
+    const firstError = profilesRes.error ?? plansRes.error ?? usageRes.error ?? resultsRes.error;
+    if (firstError) {
+      toast.error("Failed to load admin users: " + firstError.message);
+      setUsers([]);
+      setLoading(false);
+      return;
+    }
+
     const scanCounts: Record<string, number> = {};
-    scans?.forEach((s: any) => {
+    resultsRes.data?.forEach((s) => {
       scanCounts[s.user_id] = (scanCounts[s.user_id] || 0) + 1;
     });
+    const usageMap = new Map(usageRes.data?.map((row) => [row.user_id, row.scan_count]) ?? []);
+    const planMap = new Map(plansRes.data?.map((row) => [row.user_id, row.plan]) ?? []);
 
-    const userList: UserRow[] = (profiles ?? []).map((p: any) => ({
+    const userList: UserRow[] = (profilesRes.data ?? []).map((p) => ({
       id: p.id,
       email: p.email,
       created_at: p.created_at,
-      plan: (plans?.find((pl: any) => pl.user_id === p.id)?.plan as string) ?? "free",
-      scan_count: scanCounts[p.id] ?? 0,
+      plan: planMap.get(p.id) ?? "free",
+      scan_count: usageMap.get(p.id) ?? scanCounts[p.id] ?? 0,
     }));
 
     setUsers(userList);
@@ -144,24 +159,34 @@ const AdminPage = () => {
   };
 
   const fetchIntents = async () => {
-    const [{ data: intentData }, { data: profiles }] = await Promise.all([
+    const [{ data: intentData, error: intentError }, { data: profiles, error: profileError }] = await Promise.all([
       supabase.from("purchase_intents").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("profiles").select("id, email"),
     ]);
+    if (intentError || profileError) {
+      toast.error("Failed to load purchase intents");
+      setIntents([]);
+      return;
+    }
     const emailMap: Record<string, string> = {};
-    profiles?.forEach((p: any) => { emailMap[p.id] = p.email; });
-    setIntents((intentData ?? []).map((i: any) => ({ ...i, email: emailMap[i.user_id] || "Unknown" })));
+    profiles?.forEach((p) => { emailMap[p.id] = p.email; });
+    setIntents((intentData ?? []).map((intent) => ({ ...intent, email: emailMap[intent.user_id] || "Unknown" })));
   };
 
   const fetchUserScans = async (userId: string) => {
     if (userScans[userId]) return;
     setLoadingScans(userId);
-    const { data } = await supabase
-      .from("scan_logs")
-      .select("id, scanned_at")
+    const { data, error } = await supabase
+      .from("scan_results")
+      .select("id, created_at, product_name, safety_score")
       .eq("user_id", userId)
-      .order("scanned_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(50);
+    if (error) {
+      toast.error("Failed to load user scan history");
+      setLoadingScans(null);
+      return;
+    }
     setUserScans((prev) => ({ ...prev, [userId]: data ?? [] }));
     setLoadingScans(null);
   };
@@ -174,11 +199,13 @@ const AdminPage = () => {
 
   const changePlan = async (userId: string, newPlan: string) => {
     setUpdatingUser(userId);
-    const updatePayload: TablesUpdate<"user_plans"> = { plan: newPlan as Enums<"app_plan"> };
+    const updatePayload: TablesInsert<"user_plans"> = {
+      user_id: userId,
+      plan: newPlan as Enums<"app_plan">,
+    };
     const { error } = await supabase
       .from("user_plans")
-      .update(updatePayload)
-      .eq("user_id", userId);
+      .upsert(updatePayload, { onConflict: "user_id" });
 
     if (error) {
       toast.error("Failed: " + error.message);
@@ -212,15 +239,78 @@ const AdminPage = () => {
     else { setSortBy(key); setSortDir("desc"); }
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <div className="text-center space-y-2">
+          <p className="text-sm font-medium text-foreground">Verifying admin access...</p>
+          <p className="text-xs text-muted-foreground">Please wait while we check your credentials</p>
+        </div>
       </div>
     );
   }
 
-  if (!isAdmin) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center gap-6">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <Shield className="w-8 h-8 text-destructive" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-semibold text-foreground">Authentication required</h2>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            You must be logged in to access the admin panel. Please sign in first.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate("/auth")}
+          className="rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:brightness-110 transition"
+        >
+          Sign In
+        </button>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center gap-6">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <Shield className="w-8 h-8 text-destructive" />
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-2xl font-semibold text-foreground">Admin access restricted</h2>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Only <span className="font-semibold text-foreground">ys8800221@gmail.com</span> can access the admin panel.
+          </p>
+          {user?.email && user.email !== "ys8800221@gmail.com" && (
+            <p className="text-xs text-muted-foreground">
+              Currently logged in as: <span className="font-mono text-foreground">{user.email}</span>
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => navigate("/")}
+          className="rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:brightness-110 transition"
+        >
+          Back to Home
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <div className="text-center space-y-2">
+          <p className="text-sm font-medium text-foreground">Loading admin panel...</p>
+          <p className="text-xs text-muted-foreground">Fetching users and settings</p>
+        </div>
+      </div>
+    );
+  }
 
   const planColors: Record<string, string> = {
     free: "bg-muted text-muted-foreground",
@@ -231,18 +321,21 @@ const AdminPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 pb-24 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-hero border-b border-border">
+      <div className="bg-gradient-hero border-b border-border sticky top-0 z-40">
         <div className="flex items-center gap-3 p-4">
           <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-2 flex-1">
             <Shield className="w-5 h-5 text-primary" />
-            <h1 className="font-display font-bold text-lg text-foreground">Admin Panel</h1>
+            <h1 className="font-display font-bold text-lg text-foreground">Admin Control Center</h1>
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-primary/20 text-primary font-semibold ml-auto">
+              {user?.email}
+            </span>
           </div>
-          <button onClick={fetchUsers} className="p-2 rounded-xl bg-card border border-border text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={fetchUsers} className="p-2 rounded-xl bg-card border border-border text-muted-foreground hover:text-foreground transition-colors" title="Refresh data">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -405,14 +498,15 @@ const AdminPage = () => {
                         {scans.map((scan) => (
                           <div
                             key={scan.id}
-                            className="flex items-center justify-between bg-secondary/50 rounded-lg px-3 py-2 text-xs"
+                            className="flex items-center justify-between gap-3 bg-secondary/50 rounded-lg px-3 py-2 text-xs"
                           >
-                            <span className="text-foreground">
-                              {new Date(scan.scanned_at).toLocaleDateString()}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {new Date(scan.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            <div className="min-w-0">
+                              <p className="text-foreground truncate">{scan.product_name}</p>
+                              <p className="text-muted-foreground">
+                                {new Date(scan.created_at).toLocaleDateString()} {new Date(scan.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                            <span className="font-semibold text-primary">{scan.safety_score}</span>
                           </div>
                         ))}
                       </div>

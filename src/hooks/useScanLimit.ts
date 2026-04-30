@@ -41,12 +41,12 @@ export function useScanLimit() {
           .from("scan_usage")
           .select("scan_count, reset_date")
           .eq("user_id", user.id)
-          .single(),
+          .maybeSingle(),
         supabase
           .from("referral_profiles")
           .select("referral_rewards_scans")
           .eq("user_id", user.id)
-          .single(),
+          .maybeSingle(),
       ]);
 
       if (usageRes.error) throw usageRes.error;
@@ -54,7 +54,8 @@ export function useScanLimit() {
       setScanCount(usageRes.data?.scan_count ?? 0);
       setResetDate(usageRes.data?.reset_date ?? null);
       setBonusScans(referralRes.data?.referral_rewards_scans ?? 0);
-    } catch {
+    } catch (err) {
+      console.error("[useScanLimit] Failed to fetch scan usage:", err);
       setScanCount(0);
       setBonusScans(0);
       setResetDate(null);
@@ -71,14 +72,18 @@ export function useScanLimit() {
     if (!user) return false;
 
     const { data: newCount, error } = await supabase.rpc("increment_scan_count", { _user_id: user.id });
-    if (error || newCount === null) return false;
+    if (error || newCount === null) {
+      console.error("[useScanLimit] increment_scan_count failed:", error);
+      await fetchUsage();
+      return false;
+    }
 
     setScanCount(newCount);
     const { error: logError } = await supabase.from("scan_logs").insert({ user_id: user.id });
     await fetchUsage();
 
     if (logError) {
-      return false;
+      console.error("[useScanLimit] scan_logs insert failed:", logError);
     }
 
     return true;

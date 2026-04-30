@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import {
@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import type { AnalysisResult } from "@/types/analysis";
 import { normalizeAnalysis } from "@/lib/analysisNormalizer";
+import { invokeFoodAnalysis, productNameFromAnalysis, isFoodAnalysisSuccess } from "@/lib/foodAnalysisApi";
 
 interface DiscoverProduct {
   id: string;
@@ -39,7 +40,10 @@ interface DiscoverProduct {
 type InputMode = "image" | "barcode" | "ingredients";
 
 const CATEGORIES = ["snacks", "chips", "biscuits", "drinks", "instant", "dairy", "sweets", "other"];
+const BASE_PRODUCT_MARKERS = ["Food", "Snack", "Chips", "Spicy", "Drink", "Dairy", "Noodle", "Sweet", "Meal", "Nut", "Energy", "Water"];
 const EMOJIS = ["🍽️", "🍪", "🥔", "🌶️", "🥤", "🥭", "🍜", "🍫", "🍲", "🥜", "⚡", "💧", "🧃", "🍋", "📐", "🍚", "🧈", "🍬"];
+
+const PRODUCT_MARKERS = BASE_PRODUCT_MARKERS.concat(EMOJIS.slice(0, 0));
 
 export const AdminDiscoverManager = () => {
   const [products, setProducts] = useState<DiscoverProduct[]>([]);
@@ -65,17 +69,38 @@ export const AdminDiscoverManager = () => {
 
   const fetchProducts = async () => {
     setLoading(true);
+    console.log("[AdminDiscoverManager] Fetching products...");
+    
+    // First check if user is admin
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("[AdminDiscoverManager] Current user:", user?.id, user?.email);
+    
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user?.id);
+    console.log("[AdminDiscoverManager] User roles:", roles);
+    
     const { data, error } = await supabase
       .from("discover_products")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error("Failed to load products");
+      console.error("[AdminDiscoverManager] Error fetching products:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      toast.error(`Failed to load products: ${error.message}`);
       setProducts([]);
       setLoading(false);
       return;
     }
+    
+    console.log("[AdminDiscoverManager] Products loaded:", data?.length || 0);
+    console.log("[AdminDiscoverManager] Sample product data:", data?.[0]);
 
     setProducts(
       (data ?? []).map((row) => ({
@@ -88,7 +113,7 @@ export const AdminDiscoverManager = () => {
         thumbnail: row.thumbnail,
         safety_score: row.safety_score,
         safety_level: row.safety_level,
-        analysis: normalizeAnalysis(row.analysis),
+        analysis: normalizeAnalysis(row.analysis as Record<string, unknown>),
         is_featured: row.is_featured,
         is_active: row.is_active,
         created_at: row.created_at,
@@ -109,7 +134,7 @@ export const AdminDiscoverManager = () => {
     setShowForm(false);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -122,36 +147,34 @@ export const AdminDiscoverManager = () => {
     setAnalyzing(true);
     try {
       let analysisInput: Record<string, string> = {};
+      let detectedProductName = productName.trim();
+      let detectedBrand = brand.trim();
+      const trimmedBarcode = barcode.trim();
 
       if (mode === "image" && imagePreview) {
         analysisInput = { image: imagePreview };
-      } else if (mode === "barcode" && barcode.trim()) {
-        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode.trim()}.json`);
-        if (!res.ok) throw new Error("Could not fetch product details from Open Food Facts.");
-        const productData = await res.json();
+      } else if (mode === "barcode" && trimmedBarcode) {
+        analysisInput = { barcode: trimmedBarcode };
 
-        if (productData.status === 1 && productData.product) {
-          const product = productData.product;
-          if (!productName) setProductName(product.product_name || "");
-          if (!brand) setBrand(product.brands || "");
-
-          const parts = [
-            product.product_name && `Product: ${product.product_name}`,
-            product.brands && `Brand: ${product.brands}`,
-            product.ingredients_text && `Ingredients: ${product.ingredients_text}`,
-            product.allergens && `Allergens: ${product.allergens}`,
-            product.additives_tags?.length && `Additives: ${product.additives_tags.join(", ")}`,
-          ].filter(Boolean).join("\n");
-
-          analysisInput = { ingredients_text: parts };
-        } else {
-          toast.error("Barcode not found in Open Food Facts. Try pasting ingredients manually.");
-          return;
+        try {
+          const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${trimmedBarcode}.json`);
+          if (res.ok) {
+            const productData = await res.json();
+            if (productData.status === 1 && productData.product) {
+              const product = productData.product;
+              detectedProductName = detectedProductName || product.product_name || "";
+              detectedBrand = detectedBrand || product.brands || "";
+              if (!productName && detectedProductName) setProductName(detectedProductName);
+              if (!brand && detectedBrand) setBrand(detectedBrand);
+            }
+          }
+        } catch (err) {
+          console.warn("[AdminDiscoverManager] Open Food Facts metadata lookup failed:", err);
         }
       } else if (mode === "ingredients" && ingredientsText.trim()) {
         const parts = [
-          productName && `Product: ${productName}`,
-          brand && `Brand: ${brand}`,
+          detectedProductName && `Product: ${detectedProductName}`,
+          detectedBrand && `Brand: ${detectedBrand}`,
           `Ingredients: ${ingredientsText}`,
         ].filter(Boolean).join("\n");
         analysisInput = { ingredients_text: parts };
@@ -160,38 +183,26 @@ export const AdminDiscoverManager = () => {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("analyze-food", {
-        body: analysisInput,
-      });
-
-      if (error) throw error;
-      const payload = (data ?? {}) as Record<string, unknown>;
-      if (typeof payload.error === "string" && payload.error.trim()) {
-        throw new Error(payload.error);
-      }
-      if (payload.unable_to_fetch === true) {
-        const message =
-          typeof payload.message === "string" && payload.message.trim()
-            ? payload.message
-            : "Unable to analyze product.";
-        toast.error(message);
+      const result = await invokeFoodAnalysis(analysisInput);
+      if (!isFoodAnalysisSuccess(result)) {
+        toast.error(result.message);
         return;
       }
 
-      const analysis = normalizeAnalysis(payload);
+      const analysis = result.analysis;
       const { data: { user } } = await supabase.auth.getUser();
-      const finalName = productName || analysis.product_summary.split(".")[0]?.slice(0, 60) || "Unknown Product";
+      const finalName = detectedProductName || productNameFromAnalysis(analysis);
 
       const insertPayload: TablesInsert<"discover_products"> = {
         product_name: finalName,
-        brand,
+        brand: detectedBrand,
         category,
-        barcode: barcode.trim(),
+        barcode: trimmedBarcode,
         emoji,
         thumbnail: imagePreview && imagePreview.length < 100000 ? imagePreview : null,
         safety_score: analysis.safety_score,
         safety_level: analysis.safety_level,
-        analysis,
+        analysis: analysis as unknown as TablesInsert<"discover_products">["analysis"],
         is_featured: isFeatured,
         is_active: true,
         added_by: user?.id,
@@ -323,13 +334,13 @@ export const AdminDiscoverManager = () => {
           </div>
 
           <div>
-            <p className="text-xs text-muted-foreground mb-2">Product Emoji</p>
+            <p className="text-xs text-muted-foreground mb-2">Product Marker</p>
             <div className="flex flex-wrap gap-2">
-              {EMOJIS.map((value) => (
+              {PRODUCT_MARKERS.map((value) => (
                 <button
                   key={value}
                   onClick={() => setEmoji(value)}
-                  className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-all ${
+                  className={`min-w-14 h-9 px-2 rounded-lg text-xs font-medium flex items-center justify-center transition-all ${
                     emoji === value ? "bg-primary/20 border-2 border-primary" : "bg-secondary border border-border hover:bg-secondary/80"
                   }`}
                 >

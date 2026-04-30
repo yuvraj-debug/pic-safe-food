@@ -20,14 +20,11 @@ import { useScanLimit } from "@/hooks/useScanLimit";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import type { AnalysisResult } from "@/types/analysis";
-import { normalizeAnalysis, persistLastAnalysis } from "@/lib/analysisNormalizer";
+import { persistLastAnalysis } from "@/lib/analysisNormalizer";
+import { invokeFoodAnalysis, productNameFromAnalysis, isFoodAnalysisSuccess } from "@/lib/foodAnalysisApi";
 
 type InputMode = "photo" | "barcode" | "ingredients";
 type ScanLocationState = { autoBarcode?: string };
-
-type AnalysisInvokeResult =
-  | { unableToFetch: true; message: string }
-  | { unableToFetch: false; analysis: AnalysisResult };
 
 const MODE_STEPS: Record<InputMode, { label: string; icon: LucideIcon }[]> = {
   photo: [
@@ -78,35 +75,8 @@ const ScanPage = () => {
     }
   }, [mode, status, steps.length]);
 
-  const invokeAnalysis = useCallback(async (body: Record<string, unknown>): Promise<AnalysisInvokeResult> => {
-    const { data, error } = await supabase.functions.invoke("analyze-food", { body });
-    if (error) throw error;
-
-    const payload = (data ?? {}) as Record<string, unknown>;
-    if (typeof payload.error === "string" && payload.error.trim()) {
-      throw new Error(payload.error);
-    }
-
-    if (payload.unable_to_fetch === true) {
-      return {
-        unableToFetch: true,
-        message:
-          typeof payload.message === "string" && payload.message.trim()
-            ? payload.message
-            : "Unable to fetch product details. Try ingredients mode.",
-      };
-    }
-
-    return { unableToFetch: false, analysis: normalizeAnalysis(payload) };
-  }, []);
-
   const handleAnalysisComplete = useCallback(async (analysis: AnalysisResult, thumbnail?: string) => {
     setStatus("Analysis complete!");
-
-    const scanLogged = await logScan();
-    if (!scanLogged) {
-      toast.error("Analysis done, but scan quota update failed. Please refresh and verify usage.");
-    }
 
     persistLastAnalysis(analysis);
 
@@ -114,15 +84,16 @@ const ScanPage = () => {
     if (user) {
       const payload: TablesInsert<"scan_results"> = {
         user_id: user.id,
-        product_name: analysis.product_summary.split(".")[0]?.slice(0, 60) || "Unknown Product",
+        product_name: productNameFromAnalysis(analysis),
         safety_score: analysis.safety_score,
         safety_level: analysis.safety_level,
-        analysis,
+        analysis: analysis as unknown as TablesInsert<"scan_results">["analysis"],
         thumbnail,
       };
 
       const { error: saveError } = await supabase.from("scan_results").insert(payload);
       if (saveError) {
+        console.error("[ScanPage] Failed to save scan history:", saveError);
         toast.error("Analysis complete, but saving to history failed.");
       } else {
         const { count, error: countError } = await supabase
@@ -137,6 +108,18 @@ const ScanPage = () => {
           }
         }
       }
+    } else {
+      toast.error("Analysis complete, but your login session was not available to save history.");
+    }
+
+    try {
+      const scanLogged = await logScan();
+      if (!scanLogged) {
+        toast.error("Analysis saved, but scan quota update failed. Please refresh and verify usage.");
+      }
+    } catch (err) {
+      console.error("[ScanPage] Scan quota update threw:", err);
+      toast.error("Analysis saved, but scan quota update failed. Please refresh and verify usage.");
     }
 
     await new Promise((resolve) => setTimeout(resolve, 600));
@@ -171,8 +154,8 @@ const ScanPage = () => {
       setPreview(base64);
       setStatus("Extracting ingredients...");
 
-      const result = await invokeAnalysis({ image: base64 });
-      if (result.unableToFetch) {
+      const result = await invokeFoodAnalysis({ image: base64 });
+      if (!isFoodAnalysisSuccess(result)) {
         toast.error(result.message, {
           duration: 5000,
           action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
@@ -190,7 +173,7 @@ const ScanPage = () => {
       setStatus("");
       setActiveStep(0);
     }
-  }, [checkLimit, handleAnalysisComplete, invokeAnalysis]);
+  }, [checkLimit, handleAnalysisComplete]);
 
   const processBarcode = useCallback(async (code: string) => {
     if (!checkLimit()) return;
@@ -204,40 +187,9 @@ const ScanPage = () => {
     setIsProcessing(true);
     setStatus("Fetching product...");
     try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${trimmed}.json`);
-      if (!res.ok) {
-        throw new Error("Unable to contact product database. Please try again.");
-      }
-      const productData = await res.json();
-
-      if (productData.status !== 1 || !productData.product) {
-        toast.error("Product not found. Try pasting ingredients manually.", {
-          action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
-        });
-        return;
-      }
-
-      const product = productData.product;
-      const ingredientsText = product.ingredients_text || product.ingredients_text_en || "";
-
-      if (!ingredientsText) {
-        toast.error("No ingredients found for this product. Try pasting them manually.", {
-          action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
-        });
-        return;
-      }
-
-      const parts = [
-        product.product_name && `Product: ${product.product_name}`,
-        product.brands && `Brand: ${product.brands}`,
-        `Ingredients: ${ingredientsText}`,
-        product.allergens && `Allergens: ${product.allergens}`,
-        product.additives_tags?.length && `Additives: ${product.additives_tags.join(", ")}`,
-      ].filter(Boolean).join("\n");
-
       setStatus("Reading ingredients...");
-      const result = await invokeAnalysis({ ingredients_text: parts });
-      if (result.unableToFetch) {
+      const result = await invokeFoodAnalysis({ barcode: trimmed });
+      if (!isFoodAnalysisSuccess(result)) {
         toast.error(result.message, {
           action: { label: "Paste ingredients", onClick: () => setMode("ingredients") },
         });
@@ -253,7 +205,7 @@ const ScanPage = () => {
       setStatus("");
       setActiveStep(0);
     }
-  }, [checkLimit, handleAnalysisComplete, invokeAnalysis]);
+  }, [checkLimit, handleAnalysisComplete]);
 
   const processIngredients = useCallback(async () => {
     if (!checkLimit()) return;
@@ -267,8 +219,8 @@ const ScanPage = () => {
     setIsProcessing(true);
     setStatus("Reading ingredients...");
     try {
-      const result = await invokeAnalysis({ ingredients_text: trimmed });
-      if (result.unableToFetch) {
+      const result = await invokeFoodAnalysis({ ingredients_text: trimmed });
+      if (!isFoodAnalysisSuccess(result)) {
         toast.error(result.message);
         return;
       }
@@ -282,7 +234,7 @@ const ScanPage = () => {
       setStatus("");
       setActiveStep(0);
     }
-  }, [checkLimit, handleAnalysisComplete, ingredientsInput, invokeAnalysis]);
+  }, [checkLimit, handleAnalysisComplete, ingredientsInput]);
 
   useEffect(() => {
     if (autoBarcode) {
@@ -298,7 +250,7 @@ const ScanPage = () => {
   }, [processBarcode]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.currentTarget.files?.[0];
     if (file) {
       void processImage(file);
     }

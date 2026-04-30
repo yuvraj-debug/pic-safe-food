@@ -1,5 +1,24 @@
--- Create discover_products table
-CREATE TABLE public.discover_products (
+-- =========================
+-- REQUIRED FUNCTION (FIXED - no enum dependency)
+-- =========================
+CREATE OR REPLACE FUNCTION public.has_role(user_id uuid, role_name text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_roles.user_id = user_id
+      AND user_roles.role::text = role_name
+  );
+$$;
+
+
+-- =========================
+-- TABLE
+-- =========================
+CREATE TABLE IF NOT EXISTS public.discover_products (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   product_name TEXT NOT NULL,
   brand TEXT NOT NULL DEFAULT '',
@@ -17,38 +36,48 @@ CREATE TABLE public.discover_products (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
--- Enable RLS
+-- =========================
+-- RLS
+-- =========================
 ALTER TABLE public.discover_products ENABLE ROW LEVEL SECURITY;
 
--- Anyone authenticated can view active products
+-- =========================
+-- CLEAN OLD POLICIES
+-- =========================
+DROP POLICY IF EXISTS "Anyone can view active discover products" ON public.discover_products;
+DROP POLICY IF EXISTS "Admins can view all discover products" ON public.discover_products;
+DROP POLICY IF EXISTS "Admins can add discover products" ON public.discover_products;
+DROP POLICY IF EXISTS "Admins can update discover products" ON public.discover_products;
+DROP POLICY IF EXISTS "Admins can delete discover products" ON public.discover_products;
+
+-- =========================
+-- POLICIES
+-- =========================
+
 CREATE POLICY "Anyone can view active discover products"
 ON public.discover_products
 FOR SELECT
 TO authenticated
 USING (is_active = true);
 
--- Admins can view all products (including inactive)
 CREATE POLICY "Admins can view all discover products"
 ON public.discover_products
 FOR SELECT
 TO authenticated
 USING (public.has_role(auth.uid(), 'admin'));
 
--- Admins can insert
 CREATE POLICY "Admins can add discover products"
 ON public.discover_products
 FOR INSERT
 TO authenticated
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
--- Admins can update
 CREATE POLICY "Admins can update discover products"
 ON public.discover_products
 FOR UPDATE
 TO authenticated
 USING (public.has_role(auth.uid(), 'admin'));
 
--- Admins can delete
 CREATE POLICY "Admins can delete discover products"
 ON public.discover_products
 FOR DELETE

@@ -23,19 +23,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    const fetchUserData = async (userId: string) => {
+    const fetchUserData = async (userId: string, userEmail: string | undefined) => {
+      setLoading(true);
       try {
-        const [{ data: roles }, { data: plan }] = await Promise.all([
-          supabase.from("user_roles").select("role").eq("user_id", userId),
-          supabase.from("user_plans").select("plan").eq("user_id", userId).single(),
-        ]);
+        const ADMIN_EMAIL = "ys8800221@gmail.com";
+        const isAdmin = userEmail === ADMIN_EMAIL;
+
+        const { data: plan } = await supabase
+          .from("user_plans")
+          .select("plan")
+          .eq("user_id", userId)
+          .single();
+
         if (!mounted) return;
-        setIsAdmin(roles?.some((roleRow) => roleRow.role === "admin") ?? false);
+        setIsAdmin(isAdmin);
         setUserPlan(plan?.plan ?? "free");
       } catch {
-        if (!mounted) return;
-        setIsAdmin(false);
-        setUserPlan("free");
+        if (mounted) {
+          setIsAdmin(false);
+          setUserPlan("free");
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
@@ -48,12 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (newSession?.user) {
           // Fire and forget
-          fetchUserData(newSession.user.id);
+          void fetchUserData(newSession.user.id, newSession.user.email);
         } else {
           setIsAdmin(false);
           setUserPlan("free");
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -63,9 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        fetchUserData(s.user.id);
+        void fetchUserData(s.user.id, s.user.email);
+      } else {
+        setIsAdmin(false);
+        setUserPlan("free");
+        setLoading(false);
       }
-      setLoading(false);
     }).catch(() => {
       if (mounted) setLoading(false);
     });

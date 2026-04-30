@@ -36,8 +36,8 @@ const EarnScansPage = () => {
       try {
         await navigator.share({ title: "PicSafe Food", text });
         return;
-      } catch (e: any) {
-        if (e?.name === "AbortError") return;
+      } catch (e: unknown) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
       }
     }
     await navigator.clipboard.writeText(text);

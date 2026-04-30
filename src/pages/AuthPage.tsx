@@ -1,11 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import { lovable } from "@/integrations/lovable/index";
-import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft, Gift } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  ArrowRight,
+  Loader2,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Gift,
+  CheckCircle,
+  AlertCircle
+} from "lucide-react";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
+import {
+  loginWithGoogle,
+  signUpWithEmail,
+  loginWithEmail,
+  handleOAuthRedirect
+} from "@/lib/auth";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -16,6 +32,22 @@ const AuthPage = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
+
+  // Handle OAuth redirect on component mount
+  useEffect(() => {
+    const checkOAuthCallback = async () => {
+      const result = await handleOAuthRedirect();
+      if (result.success && result.user) {
+        toast.success("Successfully signed in with Google!");
+        navigate("/");
+      } else if (result.error) {
+        console.error("OAuth redirect error:", result.error);
+      }
+    };
+
+    checkOAuthCallback();
+  }, [navigate]);
 
   const linkReferral = async (userId: string) => {
     const code = referralCode.trim().toUpperCase();
@@ -50,12 +82,19 @@ const AuthPage = () => {
     if (!email.trim() || !password.trim()) return;
     setLoading(true);
 
+    // Normalize email: trim whitespace and convert to lowercase
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error(error.message);
+      const result = await loginWithEmail(email, password);
+      if (result.error) {
+        toast.error(result.error);
       } else {
         toast.success("Welcome back!");
+        // Link referral if code was provided and user just logged in
+        if (result.user && referralCode.trim()) {
+          await linkReferral(result.user.id);
+        }
         navigate("/");
       }
     } else {
@@ -64,16 +103,47 @@ const AuthPage = () => {
         setLoading(false);
         return;
       }
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Account created! You're now logged in.");
-        // Link referral if code was provided
-        if (data.user && referralCode.trim()) {
-          await linkReferral(data.user.id);
+      const result = await signUpWithEmail(normalizedEmail, password);
+      if (result.error) {
+        // Log full error for debugging
+        console.error("Signup error:", result);
+        
+        // Check if it's an "already exists" error and suggest login
+        if (result.errorCode === 'user_already_exists') {
+          toast.error(
+            <div className="flex flex-col gap-2">
+              <span>{result.error}</span>
+              <button
+                onClick={() => setIsLogin(true)}
+                className="text-primary underline text-sm self-start"
+              >
+                Sign in here instead
+              </button>
+            </div>
+          );
+        } else {
+          toast.error(result.error);
         }
-        navigate("/");
+      } else {
+        if (result.needsEmailConfirmation) {
+          toast.success(
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span>Account created! Please check your email to confirm your account.</span>
+            </div>,
+            { duration: 8000 }
+          );
+        } else {
+          toast.success("Account created! You're now logged in.");
+          // Link referral if code was provided
+          if (referralCode.trim()) {
+            // We'll need to get the user ID after they verify email and log in
+            // For now, we can store the referral code in localStorage and apply it later
+            localStorage.setItem("pendingReferralCode", referralCode);
+          }
+        }
+        // Don't navigate yet - user needs to verify email first
+        // They'll be redirected back after verification
       }
     }
     setLoading(false);
@@ -250,16 +320,15 @@ const AuthPage = () => {
 
         <button
           type="button"
-          disabled={loading}
+          disabled={loading || oauthLoading}
           onClick={async () => {
-            setLoading(true);
-            const { error } = await lovable.auth.signInWithOAuth("google", {
-              redirect_uri: window.location.origin,
-            });
+            setOauthLoading(true);
+            const { error } = await loginWithGoogle();
             if (error) {
-              toast.error("Google sign-in failed");
-              setLoading(false);
+              toast.error("Google sign-in failed: " + error.message);
+              setOauthLoading(false);
             }
+            // No need to set loading false - redirect will happen
           }}
           className="w-full flex items-center justify-center gap-3 bg-card border border-border text-foreground font-display font-semibold py-4 rounded-2xl hover:bg-accent active:scale-[0.98] transition-all disabled:opacity-50"
         >

@@ -6,6 +6,12 @@ interface BarcodeScannerProps {
   active: boolean;
 }
 
+type BarcodeDetectionResult = {
+  codeResult?: {
+    code?: string;
+  };
+};
+
 export const BarcodeScanner = ({ onDetected, active }: BarcodeScannerProps) => {
   const scannerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +46,7 @@ export const BarcodeScanner = ({ onDetected, active }: BarcodeScannerProps) => {
         locate: true,
         frequency: 10,
       },
-      (err: any) => {
+      (err: unknown) => {
         if (err) {
           console.error("Quagga init error:", err);
           setError("Could not access camera. Please allow camera permission.");
@@ -50,7 +56,7 @@ export const BarcodeScanner = ({ onDetected, active }: BarcodeScannerProps) => {
       }
     );
 
-    const handleDetected = (result: any) => {
+    const handleDetected = (result: BarcodeDetectionResult) => {
       if (detectedRef.current) return;
       const code = result?.codeResult?.code;
       if (code && code.length >= 8) {
